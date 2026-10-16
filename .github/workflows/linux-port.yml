@@ -1,0 +1,44 @@
+name: linux-port
+
+on:
+  push:
+    branches: [linux]
+  pull_request:
+    branches: [linux, main]
+
+jobs:
+  fedora44:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Install build setup
+        run: |
+          dnf install -y gcc-c++ cmake ninja-build git pkgconf-pkg-config \
+            pipewire-devel systemd-devel dbus-devel alsa-lib-devel \
+            libX11-devel libXext-devel libXinerama-devel libXrandr-devel \
+            libXcursor-devel libXcomposite-devel libXrender-devel \
+            freetype-devel fontconfig-devel mesa-libGL-devel libcurl-devel \
+            libasan libubsan gdb valgrind pipewire-utils wireplumber pulseaudio-utils
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Configure (Ninja)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  windows-shared:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify shared sources present (no Linux breakage signal)
+        shell: pwsh
+        run: |
+          if (!(Test-Path "fxsound/Project/FxSound.sln")) { throw "FxSound.sln missing" }
+          if (!(Test-Path "dsp/DfxDsp.vcxproj")) { throw "DfxDsp.vcxproj missing" }
+          if (!(Test-Path "audiopassthru/audiopassthru.vcxproj")) { throw "audiopassthru.vcxproj missing" }
+          Write-Host "Shared Windows solution files intact. Full MSBuild build is manual (needs JUCE at C:\JUCE + WDK)."

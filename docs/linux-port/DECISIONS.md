@@ -5,6 +5,7 @@ Log every decision with one-line reason. Untested on Linux.
 - 2026-10-16: Branch `linux` from `main@d8e7a23`, init `Resources@8f0385f` — need BinaryData strings.
 - 2026-10-16: License = AGPL-3.0-or-later (not GPLv3) — `LICENSE:1-2` + headers say AGPL.
 - 2026-10-16: JUCE rule → try 6.1.6 first (`.jucer` pins it, no shared drift) — fallback 7.0.12 if >~10 GCC16 patches, 8.x last resort; submodule exact commit, no FetchContent.
+- 2026-10-16 Phase 2: JUCE 6.1.6 chosen as initial target; `third_party/JUCE` submodule NOT fetched here (large) — Linux agent must `git submodule add https://github.com/juce-framework/JUCE.git third_party/JUCE && git -C third_party/JUCE checkout <6.1.6 tag commit>` and record commit here — avoid drift while CI proves trivial target.
 - 2026-10-16: Drop `juce_opengl` on Linux — 0 uses in `fxsound/Source/`, only linked.
 - 2026-10-16: `JUCE_USE_CURL=1` on Linux — only fetch is `MainComponent.cpp:196 WebInputStream` announcement JSON, needs TLS.
 - 2026-10-16: Streams F32 interleaved 48k/2ch, DSP inline (not worker) by default — per final plan review; `RT_AUDIT.md` verdict can switch to worker.
