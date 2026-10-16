@@ -1,0 +1,8 @@
+{
+  "_note": "Phase 4 template [USER Windows]. Generate refs with dsp_cli built from dsp/Win32Main + DfxDsp. Replace refs/ with real WAVs. Self-run compare must pass.",
+  "inputs": ["sweep_20_20k_10s.wav", "pink_10s.wav", "music_excerpt.wav", "clip_square_5s.wav"],
+  "cases": [
+    {"in": "sweep_20_20k_10s.wav", "preset": "1.fac", "out": "sweep_preset01.wav", "ref": "refs/sweep_preset01.wav"},
+    {"in": "pink_10s.wav", "preset": "1.fac", "out": "pink_preset01.wav", "ref": "refs/pink_preset01.wav"}
+  ]
+}
