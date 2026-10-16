@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=FxSound
+Comment=Audio enhancer (PipeWire)
+Exec=fxsound
+Icon=fxsound
+Terminal=false
+Categories=Audio;AudioVideo;
+StartupNotify=true
