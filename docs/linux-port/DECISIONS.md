@@ -9,6 +9,8 @@ Log every decision with one-line reason. Untested on Linux.
 - 2026-10-16: Drop `juce_opengl` on Linux — 0 uses in `fxsound/Source/`, only linked.
 - 2026-10-16: `JUCE_USE_CURL=1` on Linux — only fetch is `MainComponent.cpp:196 WebInputStream` announcement JSON, needs TLS.
 - 2026-10-16: Streams F32 interleaved 48k/2ch, DSP inline (not worker) by default — per final plan review; `RT_AUDIT.md` verdict can switch to worker.
+- 2026-10-16 Phase 6: RT_AUDIT=NOT_RT_SAFE as-written (processTimer registry in audio thread) → Phase 7 worker mode (rings 8192) — inline deferred until hoist + atomics.
+- 2026-10-16 Phase 6: `long`/`wchar_t`/aliasing struct-width fixes deferred (flags `-ffp-contract=off -fno-strict-aliasing -fwrapv` + F32 helpers only) — avoid Windows parity risk; Linux agent does fixed-width pass after ASan goldens.
 - 2026-10-16: No `win_compat.h` force-include — `compat/` only for `DfxDsp/ptutil/AudioPassthruCore`, never PipeWire code; split `AudioPassthruCore` vs `AudioPassthruPW`.
 - 2026-10-16: Registry → `~/.config/FxSound/` settings file; `dfx_guid` = sink `node.name`; startup-only keys = logged compile defaults.
 - 2026-10-16: Factory `/usr/share/fxsound/Factsoft` + exe-adjacent fallback; user `$XDG_DATA_HOME/fxsound/presets/` merged read-only factory — XDG + read-only system dir.
