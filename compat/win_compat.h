@@ -21,6 +21,11 @@ using HANDLE = void*;
 using HWND = void*;
 using HINSTANCE = void*;
 using HRESULT = int32_t;
+// Neutralize MSVC declspec on GCC (dllexport/dllimport only; Phase 6).
+// Does NOT define min/max/near/far/VOID per plan.
+#ifndef __declspec
+#define __declspec(x)
+#endif
 constexpr HRESULT S_OK = 0;
 constexpr HRESULT E_FAIL = (HRESULT)0x80004005;
 inline bool SUCCEEDED(HRESULT h) { return h >= 0; }

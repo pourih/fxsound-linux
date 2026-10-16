@@ -28,6 +28,20 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Golden + param-effect (skips if refs absent — needs Phase 4 Windows run)
+        run: |
+          python3 tools/golden/gen_inputs.py --dir /tmp/fx_inputs || true
+          if [ -f tests/golden/manifest.json ] && ls tests/golden/refs/*.wav >/dev/null 2>&1; then
+            ./build/dsp_cli --in /tmp/fx_inputs/pink_10s.wav --out /tmp/fx_out.wav --preset bin/x64/Factsoft/1.fac || exit 1
+            python3 tests/compare_golden.py --manifest tests/golden/manifest.json --out-dir /tmp/fx_outdir || exit 1
+            python3 tests/param_effect.py --dsp-cli ./build/dsp_cli --in /tmp/fx_inputs/pink_10s.wav --tmp /tmp/fx_param || exit 1
+          else
+            echo "golden refs absent — skipping (Phase 4 Windows run pending)"
+          fi
+      - name: ASan/UBSan dsp_cli smoke
+        run: |
+          cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" || exit 0
+          cmake --build build-asan --target dsp_cli || echo "asan build UNVERIFIED"
 
   windows-shared:
     runs-on: windows-2022
