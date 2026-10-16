@@ -22,13 +22,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "codedefs.h"
 #include "DfxSdk.h"
 #include "dfxp.h"
-#include "prelst.h"
-#include "file.h"
+#include "Prelst.h"
+#include "File.h"
 #include "qnt.h"
 #include <string>
 
 #include "BinauralSyn.h"
-#include "ptutil\dfxp\u_dfxp.h"
+#include "ptutil/dfxp/u_dfxp.h"
 #include "com.h"
 #include "dfxSharedUtil.h"
 #include "GraphicEq.h"
