@@ -1,0 +1,12 @@
+/*
+FxSound Linux port — linux/crash_posix.h (Phase 8)
+Replaces Main.cpp MiniDump/StackWalk64/CoInitializeEx/AttachConsole/NvOptimus on Linux.
+Linux: SystemStats::setApplicationCrashHandler + backtrace to log. --status to stdout.
+Untested.
+*/
+#pragma once
+
+namespace fxsound_linux {
+void installCrashHandler();  // SystemStats + backtrace, log to ~/.config/FxSound/crash.log
+bool writeStatusStdout(const char* json);  // --status prints to stdout (not %APPDATA% file)
+}  // namespace fxsound_linux
