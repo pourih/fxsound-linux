@@ -1,0 +1,6 @@
+pw-dump
+Error: Unknown option --version
+pw-cli
+pactl 17.0
+pw-top
+session type: wayland

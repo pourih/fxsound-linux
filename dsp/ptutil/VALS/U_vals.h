@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef _U_VALS_H_
 #define _U_VALS_H_
 
-#include <Windows.h>
+#include <windows.h>
 #include "codedefs.h"  
 #include "slout.h"
 #include "pt_defs.h"

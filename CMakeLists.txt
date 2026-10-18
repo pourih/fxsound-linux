@@ -19,42 +19,60 @@ target_include_directories(fxsound_linux_trivial PUBLIC tools/ci)
 
 # ---- DfxDsp (static, JUCE-free) ----
 # Core DSP + ptutil, excluding Win32-only harness and WinMM file-play path.
-file(GLOB DFXDSP_CORE
+# Matches DfxDsp.vcxproj ClCompile list (108 files): Filt, DspUtil/*/*, ptechDsp .c
+# 3-level, ptComSftDfx .c. Recursive glob to avoid missing subdirs (Phase 2 rule).
+file(GLOB_RECURSE DFXDSP_CORE
   dsp/DfxDsp.cpp dsp/DfxDspPrivate.cpp dsp/DfxDspPreset.cpp dsp/DfxDspEq.cpp dsp/DfxDspRegistry.cpp
   dsp/ptutil/VALS/*.cpp dsp/ptutil/PRELST/*.cpp dsp/ptutil/dfxp/*.cpp
-  dsp/ptutil/dfxSharedUtil/*.cpp dsp/ptutil/COM/*.cpp dsp/ptutil/MTH/*.cpp
-  dsp/ptutil/MRY/*.cpp dsp/ptutil/pstr/*.cpp dsp/ptutil/ptime/*.cpp
-  dsp/ptutil/SLOUT/*.cpp dsp/ptutil/realSample/*.cpp dsp/ptutil/Qnt/*.cpp
-  dsp/ptutil/SOS/*.cpp dsp/ptechDsp/*.cpp dsp/ptechDsp/*/*.cpp dsp/ptComSftDfx/*.cpp dsp/ptComSftDfx/*/*.cpp
+  dsp/ptutil/dfxSharedUtil/*.cpp dsp/ptutil/COM/*.cpp
+  dsp/ptutil/pstr/*.cpp dsp/ptutil/ptime/*.cpp
+  dsp/ptutil/realSample/*.cpp dsp/ptutil/Qnt/*.cpp
+  dsp/ptutil/SOS/*.cpp dsp/ptutil/Filt/*.cpp
+  dsp/ptutil/DspUtil/*.cpp dsp/ptutil/DspUtil/*/*.cpp
+  dsp/ptComSftDfx/*.cpp dsp/ptComSftDfx/*.c
+  dsp/ptutil/PWAV/PwavConvert.cpp dsp/ptutil/PWAV/PwavUtil.cpp
+  dsp/ptechDsp/Aural/Aural032/Auralp32.c dsp/ptechDsp/Aural/Aural0/Auralp.c
+  dsp/ptechDsp/Dly32/Dly832/dly8p32.c dsp/ptechDsp/Dly8/Dly8p.c
+  dsp/ptechDsp/Lex/Lex16/Lex16.c dsp/ptechDsp/Lex/Lex32/Lex32.c
+  dsp/ptechDsp/Maximizer/Maxi16/Maxi16.c dsp/ptechDsp/Maximizer/Maxi32/Maxi32.c
+  dsp/ptechDsp/Peq/Peq832/peq8p32.c dsp/ptechDsp/Peq/Peq8/peq8p.c
+  dsp/ptechDsp/Play/Play16/Play16.c dsp/ptechDsp/Play/Play32/Play32.c
+  dsp/ptechDsp/wide/Wide16/Wide16.c dsp/ptechDsp/wide/Wide32/Wide32.c
 )
-# Exclude legacy WinMM WAV file-play (needs mmsystem.h real impl) — v1 out of scope.
-# PWAV headers still parse via compat/mmsystem.h stub, but no PWAV .cpp on Linux.
-file(GLOB DFXDSP_PWAV dsp/ptutil/PWAV/*.cpp)
-list(REMOVE_ITEM DFXDSP_CORE ${DFXDSP_PWAV})
-# Note: glob may miss new subdirs; Linux agent: verify `git status` after build.
+# PWAV file I/O (Pwav.cpp/PwavIO.cpp) uses WinMM mmio* — excluded v1 (file-play test
+# harness only). Converters (PwavConvert/Util, pure, no mmio) ARE included: Comwave
+# processAudio path calls pwav24BitToFloat/pwavFloatTo24Bit (see dfxpProcessReal).
 
 add_library(DfxDsp STATIC ${DFXDSP_CORE})
 target_include_directories(DfxDsp PUBLIC
-  dsp/include dsp audiopassthru/include dsp/ptutil/include
+  dsp/ptutil/include dsp/include dsp audiopassthru/include
   dsp/ptutil/VALS dsp/ptutil/PRELST dsp/ptutil/PWAV dsp/ptutil/dfxp
 )
 # compat/ ONLY for DfxDsp/ptutil (never PipeWire). No force-include.
 target_include_directories(DfxDsp PRIVATE compat)
-target_compile_definitions(DfxDsp PRIVATE JUCE_MODAL_LOOPS_PERMITTED)
+target_compile_definitions(DfxDsp PRIVATE JUCE_MODAL_LOOPS_PERMITTED DSPSOFT_TARGET PT_NON_MFC PT_DSP_BUILD=2)
 target_compile_options(DfxDsp PRIVATE -O2 -ffp-contract=off -fno-strict-aliasing -fwrapv)
 # No JUCE, no crypt32/Wtsapi32/dbghelp on Linux.
 
 # ---- AudioPassthruCore (static, no WASAPI, no PipeWire) ----
+# Linux: AudioPassthru/*.cpp are Windows WASAPI (Winbase/comdef/mmreg/Mmdeviceapi),
+# reimplemented via linux/ stubs + sndDevices_pw (Phase 7). Excluded here to keep
+# Windows building (Windows uses .vcxproj, not this glob).
 file(GLOB AP_CORE
-  audiopassthru/src/AudioPassthru/*.cpp
   audiopassthru/src/MRY/*.cpp audiopassthru/src/MTH/*.cpp
   audiopassthru/src/pstr/*.cpp audiopassthru/src/ptime/*.cpp
   audiopassthru/src/SLOUT/*.cpp
 )
+# NOTE: FILE/* (FileGeneral/FileDate use CreateFile/GetFileTime/IO.H) excluded —
+# Linux uses linux/file_reg_posix.cpp minimal POSIX reimplementation (Phase 5).
+# Only fileExist/fileOpen/fileCreateDirectoryAndParents + reg stubs needed for
+# dsp_cli offline golden (preset .fac via Valsfile). Full Win32 file/date APIs
+# remain Windows-only (see .vcxproj).
 # Excluded on Linux: src/sndDevices/* (WASAPI), src/reg/* (Win32 registry),
 # src/FILE/fileWin32Handle.cpp (CreateFile), src/operatingSystem/* (SCM/WMP).
 add_library(AudioPassthruCore STATIC ${AP_CORE}
   linux/registry_posix.cpp linux/dsp_registry_posix.cpp linux/os_posix.cpp
+  linux/file_reg_posix.cpp
 )
 target_include_directories(AudioPassthruCore PUBLIC
   audiopassthru/include dsp/include linux
@@ -70,26 +88,33 @@ add_library(AudioPassthruPW STATIC
 target_include_directories(AudioPassthruPW PUBLIC linux audiopassthru/include dsp/include)
 # NOTE: no compat/ here by design — compat shims must never reach PipeWire code.
 find_package(PkgConfig QUIET)
-if(PkgConfig)
+if(PkgConfig_FOUND OR PKG_CONFIG_FOUND)
   pkg_check_modules(PIPEWIRE QUIET libpipewire-0.3)
   if(PIPEWIRE_FOUND)
     target_include_directories(AudioPassthruPW PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
+    target_compile_options(AudioPassthruPW PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
   endif()
 endif()
 
 # New Linux files get warnings-as-errors (shared legacy sources do not).
-foreach(t fxsound_linux_trivial AudioPassthruCore AudioPassthruPW)
+# AudioPassthruCore mixes legacy (MRY/MTH/pstr/ptime/SLOUT) + new (linux/*.cpp):
+# no -Werror (would break Windows parity, e.g. MthBuffer fallthrough). New files
+# are covered by AudioPassthruPW + trivial strictness.
+foreach(t fxsound_linux_trivial AudioPassthruPW)
   if(FXSOUND_LINUX_WERROR)
     target_compile_options(${t} PRIVATE -Wall -Wextra -Werror)
   endif()
 endforeach()
+target_compile_options(AudioPassthruCore PRIVATE -Wall -Wextra)
 target_compile_options(DfxDsp PRIVATE -Wall -Wextra)
 # (No -Werror on DfxDsp legacy shared code — would break Windows parity.)
 
 # ---- dsp_cli (Phase 4/6 offline runner) ----
+# Links DfxDsp + AudioPassthruCore: DfxDsp dfxpProcessInt calls mthConvert* in
+# AP_CORE MthBuffer.cpp on both Windows (exe links both libs) and Linux.
 add_executable(dsp_cli tools/dsp_cli/dsp_cli.cpp)
 target_include_directories(dsp_cli PRIVATE dsp/include)
-target_link_libraries(dsp_cli PRIVATE DfxDsp)
+target_link_libraries(dsp_cli PRIVATE DfxDsp AudioPassthruCore)
 
 # ---- FxSound GUI (JUCE, optional until submodule pinned) ----
 # Expected: third_party/JUCE submodule at exact 6.1.6 commit (see DECISIONS.md).

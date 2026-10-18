@@ -1,0 +1,3 @@
+MANUAL loopback: run: pw-loopback --capture-props='target.object=fxsound_audio_enhancer' --playback-props='target.object=<real-sink-node.name>'  (find node.name via pw-dump). Play tone to fxsound sink, confirm sound on real device. Record in SPIKE_RESULTS.md.
+MANUAL monitor volume: play tone at -20dBFS to fxsound sink; record monitor with: pw-record --target fxsound_audio_enhancer.monitor --format wav test_100.wav (100%), then wpctl set-volume <fx-id> 0.5 / 0.1 and record again. Repeat with monitor.channel-volumes=true sink. Note pre/post. See SPIKE_RESULTS.md table.
+MANUAL idle: stop all playback 10s; check pw-top whether capture/monitor still RUNNING vs SUSPENDED/IDLE. Test node.pause-on-idle=false and session.suspend-timeout-seconds=0 variants.

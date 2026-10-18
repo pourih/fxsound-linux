@@ -7,6 +7,7 @@ Startup-only keys return logged compile-time defaults.
 Untested on Linux.
 */
 #pragma once
+#include <cstdint>
 #include <string>
 
 namespace fxsound_linux {

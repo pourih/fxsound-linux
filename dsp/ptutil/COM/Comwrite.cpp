@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* Standard includes */
 #include <math.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -172,8 +173,14 @@ int PT_DECLSPEC comRealWrite(PT_HANDLE *hp_com, long l_mem_offset, realtype r_va
 
   	    /* To speed up parameter writes with remote operation, use single call.
 	     * This new function will handle COMM_MEM_BASE_ADDR offsetting.
+	     * Linux port: float bit-pattern is 4 bytes (Windows long==4B, Linux
+	     * long==8B would over-read stack → ASan overflow + wrong DSP params
+	     * e.g. right channel zeroed). Copy 4B via int32_t; Windows identical.
 	     */
-	    if( comSftwrWriteParam(cast_handle->comSftwr_hdl, (long)(l_mem_offset), *(long*)i_val) != OKAY)
+	    int32_t param_bits = 0;
+	    static_assert(sizeof(realtype) == 4, "realtype must be 32-bit float");
+	    memcpy(&param_bits, i_val, 4);
+	    if( comSftwrWriteParam(cast_handle->comSftwr_hdl, (long)(l_mem_offset), (long)param_bits) != OKAY)
 		  return(NOT_OKAY);
 	}
 

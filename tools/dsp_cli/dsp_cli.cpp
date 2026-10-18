@@ -105,10 +105,10 @@ int main(int argc, char** argv) {
   }
   if (bands > 0) dsp.setNumBands(bands);
   if (!effects.empty()) {
-    // parse name:value[,name:value]
+    // parse name=value[,name=value] (also name:value for compat; docs use '=')
     size_t p = 0;
     while (p < effects.size()) {
-      size_t c = effects.find(':', p); if (c == std::string::npos) break;
+      size_t c = effects.find_first_of("=:", p); if (c == std::string::npos) break;
       size_t e = effects.find(',', c); if (e == std::string::npos) e = effects.size();
       std::string n = effects.substr(p, c - p); float v = (float)atof(effects.substr(c + 1, e - c - 1).c_str());
       int id = effectId(n);
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
   if (!gains.empty()) {
     size_t p = 0;
     while (p < gains.size()) {
-      size_t c = gains.find(':', p); if (c == std::string::npos) break;
+      size_t c = gains.find_first_of("=:", p); if (c == std::string::npos) break;
       size_t e = gains.find(',', c); if (e == std::string::npos) e = gains.size();
       int b = atoi(gains.substr(p, c - p).c_str()); float v = (float)atof(gains.substr(c + 1, e - c - 1).c_str());
       dsp.setEqBandBoostCut(b, v);

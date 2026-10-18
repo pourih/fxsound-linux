@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "codedefs.h"
 
-#include <Windows.h>
+#include <windows.h>
 #include <math.h>
 #include <stdio.h>
 

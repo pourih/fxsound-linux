@@ -1,0 +1,52 @@
+PipeWire 'pipewire-0' [1.6.9, pouria@q552ub, cookie:2336621401]
+ └─ Clients:
+        33. uresourced                          [1.6.9, pouria@q552ub, pid:1702]
+        34. WirePlumber                         [1.6.9, pouria@q552ub, pid:1711]
+        43. WirePlumber [client]                [1.6.9, pouria@q552ub, pid:1711]
+        62. kwin_wayland                        [1.6.9, pouria@q552ub, pid:1717]
+        65. pipewire                            [1.6.9, pouria@q552ub, pid:2126]
+        66. libcanberra                         [1.6.9, pouria@q552ub, pid:1867]
+        67.                                     [1.6.9, pouria@q552ub, pid:1867]
+        68. xdg-desktop-portal                  [1.6.9, pouria@q552ub, pid:2106]
+        69.                                     [1.6.9, pouria@q552ub, pid:1878]
+        70. plasmashell                         [1.6.9, pouria@q552ub, pid:1878]
+        71. Firefox                             [1.6.9, pouria@q552ub, pid:26809]
+        72. libcanberra                         [1.6.9, pouria@q552ub, pid:1878]
+        73. Firefox                             [1.6.9, pouria@q552ub, pid:26809]
+        74.                                     [1.6.9, pouria@q552ub, pid:1910]
+        79.                                     [1.6.9, pouria@q552ub, pid:1878]
+        80. wpctl                               [1.6.9, pouria@q552ub, pid:29356]
+
+Audio
+ ├─ Devices:
+ │      44. Built-in Audio                      [alsa]
+ │  
+ ├─ Sinks:
+ │  *   51. Built-in Audio Analog Stereo        [vol: 0.00 MUTED]
+ │  
+ ├─ Sources:
+ │  *   52. Built-in Audio Analog Stereo        [vol: 0.00 MUTED]
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+
+Video
+ ├─ Devices:
+ │      53. USB2.0 HD UVC WebCam                [v4l2]
+ │      54. USB2.0 HD UVC WebCam                [v4l2]
+ │      55. USB2.0 HD UVC WebCam: USB2.0 HD     [libcamera]
+ │  
+ ├─ Sinks:
+ │  
+ ├─ Sources:
+ │  *   63. USB2.0 HD UVC WebCam (V4L2)        
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+
+Settings
+ └─ Default Configured Devices:
+         0. Audio/Sink    bluez_output.3C_39_E7_BA_E4_9E.1
+         1. Audio/Source  alsa_input.pci-0000_00_1f.3.analog-stereo

@@ -317,12 +317,20 @@ int PT_DECLSPEC valsRead(wchar_t *wcp_file_path, int i_trace_mode, CSlout *hp_sl
 
 	/* Get the Comment. The Comment can be Unicode encoded in UTF-8 so we can support
 	   international Preset names. */
+#ifdef _WIN32
 	fgets(cp_str_utf8, LINE_LENGTH, stream);
 	if (pstrCovertUTF8StringToWideCharString_WithAlloc(cp_str_utf8, &wcp_utf8_comment, &wcp_utf8_comment_length) != OKAY)
 		return(NOT_OKAY);
 	swprintf(wcp_str, L"%s", wcp_utf8_comment);
 	free(wcp_utf8_comment);
 	wcp_utf8_comment = NULL;
+#else
+	// Linux: stream is wide-oriented after fgetws above; fgets (narrow) is
+	// undefined after wide I/O (glibc returns garbage). Use fgetws directly.
+	// .fac comments are ASCII ("General") in factory presets; UTF-8 i18n names
+	// need LC_CTYPE=UTF-8 (set by app/dsp_cli via setlocale, Phase 8).
+	fgetws(wcp_str, LINE_LENGTH, stream);
+#endif
 
 	str_length = (int)wcslen(wcp_str);
 	if (str_length > 0)

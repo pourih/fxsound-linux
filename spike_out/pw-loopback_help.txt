@@ -1,0 +1,14 @@
+pw-loopback [options]
+  -h, --help                            Show this help
+      --version                         Show version
+  -r, --remote                          Remote daemon name
+  -n, --name                            Node name (default 'pw-loopback-29350')
+  -g, --group                           Node group (default 'pw-loopback-29350')
+  -c, --channels                        Number of channels (default 2)
+  -m, --channel-map                     Channel map (default '[ FL, FR ]')
+  -l, --latency                         Desired latency in ms
+  -d, --delay                           Desired delay in float s
+  -C  --capture                         Capture source to connect to (name or serial)
+  -i  --capture-props                   Capture stream properties
+  -P  --playback                        Playback sink to connect to (name or serial)
+  -o  --playback-props                  Playback stream properties

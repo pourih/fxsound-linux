@@ -1,0 +1,1 @@
+MANUAL: wpctl set-default <fxsound id>; start already-playing stream to old default BEFORE switch; check if it moves. Start stream with explicit target (pw-play --target <real>) and check it does NOT move. Record.

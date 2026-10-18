@@ -1,0 +1,4 @@
+MANUAL latency: play click WAV through sink -> monitor -> loopback -> real sink.
+Record loopback output + electrical/acoustic reference, measure round trip.
+Repeat at quantum 256, 1024, 2048 (pw-metadata -n settings 0 clock.force-quantum <N>).
+Record added delay in ms + frames. Used for SPA_PARAM_ProcessLatency (Phase 7).

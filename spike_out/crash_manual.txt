@@ -1,0 +1,1 @@
+MANUAL: with fxsound sink as default, kill -9 29818 (or creator PID); run wpctl status + pw-dump; note which sink becomes default. Record.

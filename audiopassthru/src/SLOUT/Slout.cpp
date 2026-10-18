@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* Standard includes */
 #include <stdlib.h> 
 #include <stdio.h>
+#include <windows.h> /* Linux: compat shim for swprintf 2-arg overload (Phase 5); Windows: real SDK, harmless. */
 
 #include "slout.h"
  
@@ -122,7 +123,7 @@ int CSlout::Display_Wide(int i_linenum, wchar_t *wcp_msg)
    return(OKAY);      
 }
 
-#if defined( WIN32 ) // Wide char functions only supported in WIN32 builds.
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( __linux__ ) // Wide char logging needed on Linux too (port).
 
 /*
  * FUNCTION: Error_Wide()

@@ -1,5 +1,9 @@
 # BLOCKERS — FxSound Linux port
 
-Write failures here after 2 failed “Done when” checks, then stop. Untested on Linux.
+Write failures here after 2 “Done when” checks, then stop. Untested on Linux.
 
-- (none yet — 2026-10-16 init)
+- 2026-10-16 Fedora agent Phase 6 DSP validation FAIL (1st attempt, need 2nd before stop per rule — continuing to spike in parallel):
+  - `dsp_cli` builds, `ctest` passes (trivial + help), 12 presets load (exit 0, no warn), `power=0` passthrough bit-exact vs input.
+  - FAIL: stereo processing right channel zeroed. Mono preset1 output (4603,6987,4316…) matches stereo preset1 left, right stays 0 (outBuf zero-init). Mono bypass not tested, stereo bypass left attenuated 60x (22 vs 1379) + right 0. `param_effect.py` 250/960k differ (0.03%) for fidelity, 125/960k (0.01%) others — below 0.1% threshold (FAIL 5/5). Root likely `long`=8B vs 4B struct-width in ptechDsp `.c` (`volatile long` misaligned in dly8p32.c per UBSan) + `dfxpHdlType`/channel counts. `Comwrite.cpp *(long*)float` fixed (memcpy int32_t) but stereo persists.
+  - FAIL: ASan/UBSan NOT clean. UBSan: `dly8p32.c:141 misaligned volatile long` (4B-assumed DSP addr, Linux long=8B align 8). ASan: `Comwrite.cpp:176 stack-buffer-overflow` (`*(long*)float` 8B read from 4B float) — fixed locally but full-tree `long` in `c_*.h` (~20 flags each), `com.h` (~15 APIs), `U_vals.h`/`valsCfgHdlType`/`U_pwav.h`/`u_comSftwr.h` still LP64 (RECON §3). Need fixed-width `long`→`int32_t` pass (Windows `long`=4B identical size, but mangling differs — use `#ifdef __linux__` typedefs to keep Windows building).
+  - Decision: proceed to Phase 3 `pw_spike.sh` (PipeWire behavior independent of DSP correctness) + record JUCE pin, then attempt 2nd DSP fix (fixed-width `long` in audio path) before declaring Phase 6 blocked. Do not silently work around (e.g. mono-only) — stereo must be bit-correct within 1 LSB vs Windows refs (which are still missing — GOLDEN.md Windows run pending).
