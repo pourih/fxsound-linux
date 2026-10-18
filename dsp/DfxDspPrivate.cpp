@@ -18,6 +18,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "u_DfxDsp.h"
 #include "codedefs.h"
 #include "DfxSdk.h"
@@ -307,9 +308,9 @@ void DfxDspPrivate::setEffectValue(DfxDsp::Effect effect, float value)
 	dfxpSetKnobValue(dfxp_handle_, knob, (realtype)value / (realtype)10.0, false);
 }
 
-unsigned long DfxDspPrivate::getTotalAudioProcessedTime()
+pt_ulong DfxDspPrivate::getTotalAudioProcessedTime()
 {
-	unsigned long value;
+	pt_ulong value;
 
 	dfxpGetTotalAudioProcessedTime(dfxp_handle_, &value);
 

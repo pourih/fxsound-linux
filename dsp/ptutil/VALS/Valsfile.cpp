@@ -15,6 +15,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 /* Standard includes */
@@ -202,7 +203,7 @@ int PT_DECLSPEC valsCalcDateStrings(wchar_t *wcp_filename, wchar_t *wcp_formatte
 {
 	time_t time_structure;
 	struct tm *tm_struct_ptr;
-	long seconds;
+	pt_long seconds;
 	wchar_t wcp_short_sec_str[8];
 	wchar_t wcp_sec_str[8];
 	wchar_t wcp_date_str[8];
@@ -218,9 +219,9 @@ int PT_DECLSPEC valsCalcDateStrings(wchar_t *wcp_filename, wchar_t *wcp_formatte
 		return(NOT_OKAY);
 
 	/* Calculate number of seconds since midnight */
-	seconds = (long)(tm_struct_ptr->tm_hour * 3600L) +
-				 (long)(tm_struct_ptr->tm_min * 60L) +
-				 (long)(tm_struct_ptr->tm_sec);
+	seconds = (pt_long)(tm_struct_ptr->tm_hour * 3600L) +
+				 (pt_long)(tm_struct_ptr->tm_min * 60L) +
+				 (pt_long)(tm_struct_ptr->tm_sec);
 
 	if (wcsftime(wcp_date_str, 16, L"%m%d%y", tm_struct_ptr) == 0)
 		return(NOT_OKAY);

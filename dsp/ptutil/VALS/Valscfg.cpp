@@ -15,6 +15,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 /* Standard includes */
@@ -356,7 +357,7 @@ int PT_DECLSPEC valsCfgGetMinUserPreset(PT_HANDLE *hp_vals_cfg, int *ip_min_user
  * DESCRIPTION:
  *  Pass back the time when the last preset was saved. (Seconds since 1/1/70)
  */
-int PT_DECLSPEC valsCfgGetPresetSaveTime(PT_HANDLE *hp_vals_cfg, long *lp_preset_save_time)
+int PT_DECLSPEC valsCfgGetPresetSaveTime(PT_HANDLE *hp_vals_cfg, pt_long *lp_preset_save_time)
 {
 	struct valsCfgHdlType *cast_handle;
 
@@ -470,7 +471,7 @@ int PT_DECLSPEC valsCfgSetMinUserPreset(PT_HANDLE *hp_vals_cfg, int i_min_user_p
  * DESCRIPTION:
  *   Sets the time that the last preset was saved. (Seconds since 1/1/70).
  */
-int PT_DECLSPEC valsCfgSetPresetSaveTime(PT_HANDLE *hp_vals_cfg, long l_preset_save_time)
+int PT_DECLSPEC valsCfgSetPresetSaveTime(PT_HANDLE *hp_vals_cfg, pt_long l_preset_save_time)
 {
 	struct valsCfgHdlType *cast_handle;
 

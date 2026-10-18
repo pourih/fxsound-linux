@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* dfxpEq.cpp */
 
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 #include <windows.h>
@@ -179,7 +180,7 @@ int dfxpEqGetProcessingOn(PT_HANDLE *hp_dfxp, int i_storage_type, int *ip_on)
 									DFXP_REGISTRY_EQ_ON_WIDE);
 
 	if (regReadKey_Wide(REG_CURRENT_USER, wcp_full_key_path, &key_exists, wcp_key_value,
-	   (unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+	   (pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	      return(NOT_OKAY);
 
 	use_default = IS_TRUE;
@@ -356,7 +357,7 @@ int dfxpEqGetBandBoostCut_FromRegistry(PT_HANDLE *hp_dfxp, int i_band_num, realt
 									wcp_keyname);
 
 	if (regReadKey_Wide(REG_CURRENT_USER, wcp_full_key_path, &key_exists, wcp_key_value,
-				(unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+				(pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	         return(NOT_OKAY);
 
 	if (key_exists == IS_FALSE)

@@ -15,6 +15,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "u_DfxDsp.h"
 #include "vals.h"
 #include "qnt.h"
@@ -72,7 +73,7 @@ int DfxDspPrivate::loadPreset(std::wstring preset_file_full_path)
 
 	/* Store the preset num in the registry */
 	// SHOULD LET JUCE REMEMBER CURRENT PRESET SELECTION
-	//if (writeRegistrySessionLongValue((long)i_prelst_index, DFXG_REGISTRY_CURRENT_PRESET_NUM_WIDE) != OKAY)
+	//if (writeRegistrySessionLongValue((pt_long)i_prelst_index, DFXG_REGISTRY_CURRENT_PRESET_NUM_WIDE) != OKAY)
 	//return(NOT_OKAY);
 
 	/* Store the new clean preset settigns */
@@ -535,7 +536,7 @@ return(OKAY);
 // If it does not exist , set the current preset to be the default one
 if (!preset_exists)
 {
-if (dfxg_WriteRegistrySessionLongValue(hp_dfxg, (long)DFXG_DEFAULT_PRESET_INDEX, DFXG_REGISTRY_CURRENT_PRESET_NUM_WIDE) != OKAY)
+if (dfxg_WriteRegistrySessionLongValue(hp_dfxg, (pt_long)DFXG_DEFAULT_PRESET_INDEX, DFXG_REGISTRY_CURRENT_PRESET_NUM_WIDE) != OKAY)
 return(NOT_OKAY);
 }
 

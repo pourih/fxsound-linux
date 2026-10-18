@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* dfxpSession.cpp */
 
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 #include <windows.h>
@@ -124,7 +125,7 @@ int dfxp_SessionReadIntegerValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, int 
 									wcp_key_name);
 
 	if (regReadKey_Wide(REG_CURRENT_USER, wcp_full_key_path, &key_exists, wcp_key_value,
-	   (unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+	   (pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	      return(NOT_OKAY);
 
 	use_default = IS_TRUE;
@@ -222,7 +223,7 @@ int dfxp_SessionReadRealValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, realtyp
 									wcp_key_name);
 
 	if (regReadKey_Wide(REG_CURRENT_USER, wcp_full_key_path, &key_exists, wcp_key_value,
-	   (unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+	   (pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	      return(NOT_OKAY);
 
 	use_default = IS_TRUE;

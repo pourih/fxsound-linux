@@ -15,6 +15,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 /* Standard includes */
@@ -144,7 +145,7 @@ int dfxSharedUtil_RegistryGetTopSharedFolderPath(PT_HANDLE *hp_dfxSharedUtil, wc
 		        DFXP_REGISTRY_TOP_SHARED_FOLDER_WIDE);
 
 	if (regReadKey_Wide(REG_LOCAL_MACHINE, wcp_full_key_path, &key_exists, wcp_top_shared_folder_path,
-				(unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+				(pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	         return(NOT_OKAY);
 
 	return(OKAY);
@@ -189,7 +190,7 @@ int PT_DECLSPEC dfxSharedUtilSetSpectrumValues(PT_HANDLE *hp_dfxSharedUtil, real
  *  Stores the total number of msecs processed since shared memory was loaded.
  *
  */
-int PT_DECLSPEC dfxSharedUtilSetTotalProcessedTime(PT_HANDLE *hp_dfxSharedUtil, unsigned long ul_total_processed_time_msecs)
+int PT_DECLSPEC dfxSharedUtilSetTotalProcessedTime(PT_HANDLE *hp_dfxSharedUtil, pt_ulong ul_total_processed_time_msecs)
 {
 	struct dfxSharedUtilHdlType *cast_handle;
     
@@ -213,7 +214,7 @@ int PT_DECLSPEC dfxSharedUtilSetTotalProcessedTime(PT_HANDLE *hp_dfxSharedUtil, 
  *  Passes back the total number of msecs processed since shared memory was loaded.
  *
  */
-int PT_DECLSPEC dfxSharedUtilGetTotalProcessedTime(PT_HANDLE *hp_dfxSharedUtil, unsigned long *ulp_total_processed_time_msecs)
+int PT_DECLSPEC dfxSharedUtilGetTotalProcessedTime(PT_HANDLE *hp_dfxSharedUtil, pt_ulong *ulp_total_processed_time_msecs)
 {
 	struct dfxSharedUtilHdlType *cast_handle;
     

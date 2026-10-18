@@ -2,6 +2,11 @@
 
 Write failures here after 2 “Done when” checks, then stop. Untested on Linux.
 
+- 2026-10-16 (session 2) RESOLVED — Phase 6 DSP validation blocker (was: stereo collapsed, UBSan misaligned long, param_effect 0.03%):
+  - Root cause: LP64 `long`=8B vs LP32-design DSP word slots. Fixed-width pass landed: `pt_long`/`pt_ulong` typedef (dsp/include/ptLong.h), token replace over compiled boundary (insanely restricted: 92 DfxDsp TUs + 66 DSP headers + 28 AP Core TUs + 12 AP headers + dsp/** residual sweep for private u_* headers incl. u_qnt.h). `long long` preserved (Comsftwr.c `perf_count`), Windows byte-identical via typedef. See DECISIONS 2026-10-16 session-2.
+  - Verified gates: 12/12 factory presets stereo-valid both channels (fixed from one-channel-zeroed/near-silent); bypass `--power=0` bit-exact; `param_effect.py` PASS 5/5 (99.98–99.99% samples differ vs baseline); BonusPresets 19/19 load; `--bands` 5/15/31 OK (10 default); ASan+UBSan build: 0 runtime errors; Release output bit-identical to sanitizer build on presets 1/3/12.
+  - Outstanding: bit-exact Windows golden refs still pending (user dual-boots; runbook = tools/golden/gen_inputs.py + Windows dsp_cli build; compare via tests/compare_golden.py). Phase 6 partially blocked pending those refs only.
+
 - 2026-10-16 Fedora agent Phase 6 DSP validation FAIL (1st attempt, need 2nd before stop per rule — continuing to spike in parallel):
   - `dsp_cli` builds, `ctest` passes (trivial + help), 12 presets load (exit 0, no warn), `power=0` passthrough bit-exact vs input.
   - FAIL: stereo processing right channel zeroed. Mono preset1 output (4603,6987,4316…) matches stereo preset1 left, right stays 0 (outBuf zero-init). Mono bypass not tested, stereo bypass left attenuated 60x (22 vs 1379) + right 0. `param_effect.py` 250/960k differ (0.03%) for fidelity, 125/960k (0.01%) others — below 0.1% threshold (FAIL 5/5). Root likely `long`=8B vs 4B struct-width in ptechDsp `.c` (`volatile long` misaligned in dly8p32.c per UBSan) + `dfxpHdlType`/channel counts. `Comwrite.cpp *(long*)float` fixed (memcpy int32_t) but stereo persists.

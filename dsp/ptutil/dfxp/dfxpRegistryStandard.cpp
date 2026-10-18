@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /* dfxpRegistry.cpp */
 
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 #include <windows.h>
@@ -42,7 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * DESCRIPTION:
  *   Get the date that the dfx was installed.
  */
-int dfxpGetInstallationDate(PT_HANDLE *hp_dfxp, long *lp_date, int *ip_date_exists)
+int dfxpGetInstallationDate(PT_HANDLE *hp_dfxp, pt_long *lp_date, int *ip_date_exists)
 {
 	struct dfxpHdlType *cast_handle;
 
@@ -67,7 +68,7 @@ int dfxpGetInstallationDate(PT_HANDLE *hp_dfxp, long *lp_date, int *ip_date_exis
  *   It is useful for getting the installation date at a point in the program at which the dfxp handle has not
  *   been completely initialized yet.
  */
-int dfxpGetInstallationDate_NoHandle(wchar_t *wcp_product_name, int i_vendor_code, long *lp_date, int *ip_date_exists)
+int dfxpGetInstallationDate_NoHandle(wchar_t *wcp_product_name, int i_vendor_code, pt_long *lp_date, int *ip_date_exists)
 {
 	wchar_t wcp_full_key_path[PT_MAX_PATH_STRLEN];
    wchar_t wcp_date[DFXP_REGISTRY_BUFFER_LENGTH];
@@ -86,7 +87,7 @@ int dfxpGetInstallationDate_NoHandle(wchar_t *wcp_product_name, int i_vendor_cod
 		                     DFXP_REGISTRY_DATE_INSTALLED_WIDE);
 
 	if (regReadKey_Wide(REG_LOCAL_MACHINE, wcp_full_key_path, ip_date_exists, wcp_date,
-	   (unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+	   (pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	      return(NOT_OKAY);
 
 	if (!(*ip_date_exists))
@@ -110,7 +111,7 @@ int dfxpGetInstallationDate_NoHandle(wchar_t *wcp_product_name, int i_vendor_cod
  * DESCRIPTION:
  *   Passes the date that the current user last used dfx. 
  */
-int dfxpGetLastUsedDate(PT_HANDLE *hp_dfxp, long *lp_date, int *ip_date_exists)
+int dfxpGetLastUsedDate(PT_HANDLE *hp_dfxp, pt_long *lp_date, int *ip_date_exists)
 {
 	struct dfxpHdlType *cast_handle;
 
@@ -136,7 +137,7 @@ int dfxpGetLastUsedDate(PT_HANDLE *hp_dfxp, long *lp_date, int *ip_date_exists)
 		                     DFXP_REGISTRY_DATE_LASTUSED_WIDE);
 
 	if (regReadKey_Wide(REG_CURRENT_USER, wcp_full_key_path, ip_date_exists, wcp_date,
-	               (unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+	               (pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	      return(NOT_OKAY);
 
 	if (!(*ip_date_exists))
@@ -179,7 +180,7 @@ int dfxp_RecordLastUsedDate(PT_HANDLE *hp_dfxp)
 
 	time(&secs);
 	
-	swprintf(wcp_time, L"%ld", (long)secs);
+	swprintf(wcp_time, L"%ld", (pt_long)secs);
 	
 	swprintf(wcp_full_key_path, L"%s\\%s\\%d\\%d\\%s", 
 									DFXP_REGISTRY_TOP_WIDE, 
@@ -227,7 +228,7 @@ int dfxp_RegistryGetTopSharedFolderPath(PT_HANDLE *hp_dfxp,
 		        DFXP_REGISTRY_TOP_SHARED_FOLDER_WIDE);
 
 	if (regReadKey_Wide(REG_LOCAL_MACHINE, wcp_full_key_path, &key_exists, wcp_top_shared_folder_path,
-				(unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+				(pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	         return(NOT_OKAY);
 
 	return(OKAY);
@@ -264,7 +265,7 @@ int dfxp_RegistryGetTopVendorSpecificFolderPath(PT_HANDLE *hp_dfxp,
 		        DFXP_REGISTRY_TOP_FOLDER_WIDE);
 
 	if (regReadKey_Wide(REG_LOCAL_MACHINE, wcp_full_key_path, &key_exists, wcp_top_vendor_specific_folder_path,
-				(unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+				(pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	         return(NOT_OKAY);
 
 	return(OKAY);
@@ -299,7 +300,7 @@ int dfxp_RegistryGetDfxUniversalUiFullpath(PT_HANDLE *hp_dfxp, wchar_t *wcp_dfx_
 		        DFXP_REGISTRY_DFX_UNIVERSAL_UI_PATH_WIDE);
 
 	if (regReadKey_Wide(REG_LOCAL_MACHINE, wcp_full_key_path, &key_exists, wcp_dfx_ui_path,
-				(unsigned long)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
+				(pt_ulong)DFXP_REGISTRY_BUFFER_LENGTH) != OKAY)
 	         return(NOT_OKAY);
 
 	return(OKAY);

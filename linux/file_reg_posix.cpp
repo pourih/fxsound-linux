@@ -4,6 +4,7 @@ Minimal POSIX reimplementation of file and reg APIs needed for DfxDsp offline
 golden (dsp_cli preset .fac via Valsfile). Windows FileGeneral uses CreateFile
 and Win32 registry uses RegCreateKeyExW - excluded on Linux (see CMake).
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -107,7 +108,7 @@ int regCreateKey_Wide(int root, wchar_t* path, wchar_t* value) {
   g_regStr[regKey(root, path)] = value ? value : L"";
   return 0;
 }
-int regReadKey_Wide(int root, wchar_t* path, int* key_exists, wchar_t* value, unsigned long len) {
+int regReadKey_Wide(int root, wchar_t* path, int* key_exists, wchar_t* value, pt_ulong len) {
   std::lock_guard<std::mutex> l(g_regMu);
   auto it = g_regStr.find(regKey(root, path));
   if (it == g_regStr.end()) {
@@ -136,7 +137,7 @@ int regCreateKeyTest_Wide(int /*root*/, wchar_t* /*p*/, wchar_t* /*v*/, int* exi
   if (exists) *exists = 0;
   return 0;
 }
-int regCreateKeyWithKeyname_Dword_Wide(int r, wchar_t* p, wchar_t* k, unsigned long v) {
+int regCreateKeyWithKeyname_Dword_Wide(int r, wchar_t* p, wchar_t* k, pt_ulong v) {
   if (!p || !k) return 1;
   std::lock_guard<std::mutex> l(g_regMu);
   g_regStr[regKey(r, p, k)] = std::to_wstring(v);
@@ -148,7 +149,7 @@ int regCreateKeyWithKeyname_String_Wide(int r, wchar_t* p, wchar_t* k, wchar_t* 
   g_regStr[regKey(r, p, k)] = v ? v : L"";
   return 0;
 }
-int regReadKeyWithKeyname_String_Wide(int r, wchar_t* p, wchar_t* k, int* exists, wchar_t* v, unsigned long len) {
+int regReadKeyWithKeyname_String_Wide(int r, wchar_t* p, wchar_t* k, int* exists, wchar_t* v, pt_ulong len) {
   std::lock_guard<std::mutex> l(g_regMu);
   auto it = g_regStr.find(regKey(r, p, k));
   if (it == g_regStr.end()) {
@@ -163,7 +164,7 @@ int regReadKeyWithKeyname_String_Wide(int r, wchar_t* p, wchar_t* k, int* exists
   }
   return 0;
 }
-int regReadKeyWithKeyname_Dword_Wide(int r, wchar_t* p, wchar_t* k, int* exists, unsigned long* v) {
+int regReadKeyWithKeyname_Dword_Wide(int r, wchar_t* p, wchar_t* k, int* exists, pt_ulong* v) {
   std::lock_guard<std::mutex> l(g_regMu);
   auto it = g_regStr.find(regKey(r, p, k));
   if (it == g_regStr.end()) {
@@ -173,7 +174,7 @@ int regReadKeyWithKeyname_Dword_Wide(int r, wchar_t* p, wchar_t* k, int* exists,
   }
   if (exists) *exists = 1;
   if (v) {
-    try { *v = (unsigned long)std::stoul(it->second); } catch (...) { *v = 0; }
+    try { *v = (pt_ulong)std::stoul(it->second); } catch (...) { *v = 0; }
   }
   return 0;
 }
@@ -188,7 +189,7 @@ int regReadRegisteredOwner(char* out, int len) {
 }
 int regRemoveKey(int /*r*/, char* /*p*/) { return 0; }
 int regCreateKey(int /*r*/, char* /*p*/, char* /*v*/) { return 0; }
-int regReadKey(int /*r*/, char* /*p*/, int* exists, char* v, unsigned long len) {
+int regReadKey(int /*r*/, char* /*p*/, int* exists, char* v, pt_ulong len) {
   if (exists) *exists = 0;
   if (v && len > 0) v[0] = 0;
   return 0;

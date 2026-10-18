@@ -15,6 +15,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "ptLong.h"   /* FxSound Linux port: fixed-width DSP pt_long (see ptLong.h) */
 #include "codedefs.h"
 
 /* Standard includes */
@@ -28,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * FUNCTION: sloutDisplayFileAndLine()
  * DESCRIPTION:
  */
-int sloutDisplayFileAndLine(char *cp_filename, long lp_line_num)
+int sloutDisplayFileAndLine(char *cp_filename, pt_long lp_line_num)
 {
 	return(NOT_OKAY);
 }
