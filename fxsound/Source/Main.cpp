@@ -72,14 +72,29 @@ public:
         try
         {
 #if ! JUCE_WINDOWS
-            // KDE/GNOME fractional scaling on X11 is signalled through Xft.dpi;
-            // JUCE leaves its global scale at 1 and lets the compositor resample,
-            // which drops thin (3px) slider tracks at non-integer factors.
-            // Render at the hinted scale instead, like a DPI-aware Windows app.
+            // UI scale (Linux): default 1.0 (small window). Override order:
+            //   FXSOUND_SCALE env > --scale=<f> CLI > persisted "ui_scale" setting.
+            // Takes effect at launch (before windows are created); --scale persists
+            // for subsequent launches. JUCE gradients under fractional transforms
+            // render striped, so avoid auto-deriving from Xft.dpi.
             {
-                auto dpi = Desktop::getInstance().getDisplays().getMainDisplay().dpi;
-                if (dpi > 96.0 * 1.05 && dpi < 96.0 * 3.0)
-                    Desktop::getInstance().setGlobalScaleFactor((float) (dpi / 96.0));
+                auto& controller = FxController::getInstance();
+                float scale = (float) controller.getSettings().getDouble("ui_scale");
+                if (scale <= 0.5f || scale > 3.0f) scale = 1.0f;
+
+                if (commandline.contains("--scale="))
+                    scale = commandline.fromFirstOccurrenceOf("--scale=", false, false)
+                                .upToFirstOccurrenceOf(" ", false, false).getFloatValue();
+
+                if (const char* env = getenv("FXSOUND_SCALE"))
+                {
+                    auto env_scale = String::fromUTF8(env).getFloatValue();
+                    if (env_scale > 0.0f) scale = env_scale;
+                }
+
+                scale = jlimit (0.5f, 3.0f, scale);
+                Desktop::getInstance().setGlobalScaleFactor(scale);
+                controller.getSettings().setDouble("ui_scale", scale);
             }
 #endif
 #if ! JUCE_WINDOWS

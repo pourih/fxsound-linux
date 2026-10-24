@@ -411,11 +411,15 @@ void FxMainWindow::setIcon(bool power, bool processing)
 	// Linux: no .rc icon resources. Use the embedded brand PNG so the taskbar
 	// gets a proper icon via _NET_WM_ICON (state variants are not readable at
 	// taskbar sizes; the Windows red/blue/white/gray states stay Windows-only).
+	// Fully opaque: JUCE 6's X11 WM_HINTS pixmap path mangles transparent icons
+	// into a black square, and _NET_WM_ICON premultiplied data darkens them.
 	Image icon_image = PNGImageFormat::loadFrom(BinaryData::fxsound_large_png, BinaryData::fxsound_large_pngSize);
 	if (icon_image.isValid())
 	{
 		Image scaled(Image::ARGB, 48, 48, true);
 		Graphics g(scaled);
+		g.setColour(Colour(0xff1c1c1e));
+		g.fillAll();
 		g.drawImageWithin(icon_image, 0, 0, 48, 48,
 		                  RectanglePlacement::centred | RectanglePlacement::onlyReduceInSize, true);
 		if (auto* peer = getPeer())

@@ -306,6 +306,15 @@ void FxController::initConfig(const String& commandline)
 		settings_.setString("preset", preset);
 	}
 
+	if (arg_list.containsOption("--scale"))
+	{
+		// Persisted for the NEXT launch; the UI scale cannot change at runtime
+		// (JUCE global scale must be set before windows are created).
+		auto scale = arg_list.getValueForOption("--scale").getFloatValue();
+		if (scale >= 0.5f && scale <= 3.0f)
+			settings_.setDouble("ui_scale", scale);
+	}
+
 	if (output_device.isNotEmpty())
 	{
 		setOutputName(output_device);
@@ -407,6 +416,7 @@ void FxController::applyConfig(const String& commandline)
 	}
 
 
+
 	auto power_state = arg_list.getValueForOption("--power");
 	auto view = arg_list.getValueForOption("--view");
 	auto output_device = arg_list.getValueForOption("--output").unquoted();
@@ -502,6 +512,15 @@ void FxController::applyConfig(const String& commandline)
 				deletePreset();
 			}
 		}
+	}
+
+	if (arg_list.containsOption("--scale"))
+	{
+		// Persisted for the NEXT launch; the UI scale cannot change at runtime
+		// (JUCE global scale must be set before windows are created).
+		auto scale = arg_list.getValueForOption("--scale").getFloatValue();
+		if (scale >= 0.5f && scale <= 3.0f)
+			settings_.setDouble("ui_scale", scale);
 	}
 
 	if (output_device.isNotEmpty())
