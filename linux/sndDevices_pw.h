@@ -53,4 +53,11 @@ struct PwDrift {
   uint64_t underruns = 0, overruns = 0, corrections = 0;
 };
 PwDrift pwDrift();
+
+// SPSC ring accessors for the DSP worker (linux/AudioPassthru_linux.cpp).
+// Frames are interleaved stereo F32 at the negotiated rate (48000 pinned).
+size_t pwCaptureRead(float* dst, size_t maxFrames);       // 0..maxFrames frames
+size_t pwPlaybackWrite(const float* src, size_t frames);  // frames actually queued
+void pwSetFxsoundMuted(bool m);
+bool pwIsFxsoundMuted();
 }  // namespace fxsound_linux

@@ -9,6 +9,15 @@ Untested.
 */
 #pragma once
 
+// Win32 hotkey modifier flags (winuser.h) — FxController settings store packed
+// mod<<16|vk values, so Linux keeps the same encoding even though global
+// hotkeys are disabled (SysInfo::canSupportHotkeys() == false on Linux).
+#ifndef MOD_ALT
+#define MOD_ALT 0x0001
+#define MOD_CONTROL 0x0002
+#define MOD_SHIFT 0x0004
+#endif
+
 namespace fxsound_linux {
 inline void onHotkey(int) {}
 inline void onPowerSuspend() {}

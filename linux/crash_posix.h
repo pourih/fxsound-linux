@@ -7,6 +7,7 @@ Untested.
 #pragma once
 
 namespace fxsound_linux {
-void installCrashHandler();  // SystemStats + backtrace, log to ~/.config/FxSound/crash.log
+void installCrashHandler();  // SIGSEGV/SIGABRT/... -> backtrace in ~/.config/FxSound/crash.log
+void logBacktrace();         // non-fatal stack dump (exception catch paths)
 bool writeStatusStdout(const char* json);  // --status prints to stdout (not %APPDATA% file)
 }  // namespace fxsound_linux

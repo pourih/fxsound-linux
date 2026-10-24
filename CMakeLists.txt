@@ -93,7 +93,10 @@ if(PkgConfig_FOUND OR PKG_CONFIG_FOUND)
   if(PIPEWIRE_FOUND)
     target_include_directories(AudioPassthruPW PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
     target_compile_options(AudioPassthruPW PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
+    target_link_libraries(AudioPassthruPW PUBLIC ${PIPEWIRE_LIBRARIES})
   endif()
+  find_package(Threads REQUIRED)
+  target_link_libraries(AudioPassthruPW PUBLIC Threads::Threads)
 endif()
 
 # New Linux files get warnings-as-errors (shared legacy sources do not).
@@ -127,8 +130,30 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/third_party/JUCE/CMakeLists.txt)
   )
   # Exclude Windows-only tray/message-window impl from Linux GUI build; Linux replacements in Phase 8/9.
   list(FILTER FX_GUI EXCLUDE REGEX ".*FxSystemTrayView\\.cpp$")
-  juce_add_gui_app(FxSound PRODUCT_NAME "FxSound")
-  target_sources(FxSound PRIVATE ${FX_GUI} linux/AudioPassthruStub.cpp linux/registry_posix.cpp linux/os_posix.cpp)
+
+  # BinaryData: exactly the resource set the Projucer .jucer embeds (Images +
+  # Gilroy fonts + translation strings). Noto CJK/AR/TH fonts load from the
+  # working directory at runtime (same as Windows). 7 files in Images/ are not
+  # in the .jucer File group and stay unembedded, matching Windows.
+  file(GLOB FX_BIN_RESOURCES LIST_DIRECTORIES false
+    fxsound/Images/*.svg fxsound/Images/*.png
+    fxsound/Fonts/Gilroy*.ttf
+    Resources/Strings/*.txt
+  )
+  list(FILTER FX_BIN_RESOURCES EXCLUDE REGEX "button-(depressed|hover|normal)\\.svg$")
+  list(FILTER FX_BIN_RESOURCES EXCLUDE REGEX "FxSound Logo White\\.png$")
+  list(FILTER FX_BIN_RESOURCES EXCLUDE REGEX "FxSound White Bars\\.png$")
+  list(FILTER FX_BIN_RESOURCES EXCLUDE REGEX "logo-red\\.png$")
+  list(FILTER FX_BIN_RESOURCES EXCLUDE REGEX "logo-white\\.png$")
+  juce_add_binary_data(BinaryData SOURCES ${FX_BIN_RESOURCES})
+
+  juce_add_gui_app(FxSound PRODUCT_NAME "FxSound" NEEDS_CURL TRUE)  # JUCE_USE_CURL WebInputStream
+  target_sources(FxSound PRIVATE ${FX_GUI}
+    linux/AudioPassthru_linux.cpp linux/single_instance_posix.cpp
+    linux/registry_posix.cpp linux/os_posix.cpp
+    linux/crash_posix.cpp linux/paths_posix.cpp linux/autostart_posix.cpp
+    linux/notify_posix.cpp linux/tray_sni.cpp
+  )
   target_include_directories(FxSound PRIVATE
     fxsound/Source fxsound/Source/GUI audiopassthru/include dsp/include linux
     Resources/Strings
@@ -136,11 +161,15 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/third_party/JUCE/CMakeLists.txt)
   target_compile_definitions(FxSound PRIVATE
     JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=1
     JUCE_STRICT_REFCOUNTEDPOINTER=1 JUCE_DISPLAY_SPLASH_SCREEN=0
+    # Linux single-instance CLI forwarding: JUCE 6 broadcastMessage is a stub;
+    # implemented in linux/single_instance_posix.cpp (second instance forwards
+    # from shutdown(), primary serves from initialise()).
   )
   target_link_libraries(FxSound PRIVATE
     juce::juce_gui_extra juce::juce_gui_basics juce::juce_graphics
     juce::juce_data_structures juce::juce_events juce::juce_core juce::juce_cryptography
-    AudioPassthruCore AudioPassthruPW DfxDsp
+    BinaryData
+    DfxDsp AudioPassthruPW AudioPassthruCore
   )
   # No juce_opengl (unused per RECON §6). No crypt32/Wtsapi32/dbghelp.
   juce_generate_juce_header(FxSound)

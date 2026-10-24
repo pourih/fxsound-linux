@@ -25,6 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "FxNotification.h"
 #include "FxSettingsDialog.h"
 
+#if JUCE_WINDOWS
+
 //==============================================================================
 /*
 */
@@ -65,5 +67,29 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxSystemTrayView)
 };
+
+#else
+// Linux (FxSound port): v1 ships without a tray icon (Shell_NotifyIcon is
+// Windows-only). Same public interface so Main.cpp/FxController compile
+// unchanged; SNI StatusNotifierItem may come in v1.1 via linux/tray_sni.cpp.
+class FxSystemTrayView : public Component, public FxModel::Listener
+{
+public:
+	FxSystemTrayView() = default;
+	~FxSystemTrayView() = default;
+
+	void modelChanged(FxModel::Event model_event) override { ignoreUnused(model_event); }
+	void setStatus(bool power, bool processing) { ignoreUnused(power, processing); }
+	Point<int> getSystemTrayWindowPosition(int width, int height)
+	{
+		// No tray on Linux: centre the lite view on the primary display.
+		auto area = Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
+		return Point<int>(area.getCentreX() - width / 2, area.getCentreY() - height / 2);
+	}
+
+private:
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FxSystemTrayView)
+};
+#endif
 
 #endif

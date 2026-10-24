@@ -1,31 +1,69 @@
 /*
-FxSound Linux port — linux/crash_posix.cpp (Phase 8). Untested.
-Keep Windows building: all Win32 guarded by #if JUCE_WINDOWS in Main.cpp
-(see APP_LAYER.md); this TU compiles on Linux only.
+FxSound Linux port — linux/crash_posix.cpp (Phase 8)
+POSIX replacement for Main.cpp MiniDump/StackWalk64 crash capture.
+SIGSEGV/SIGABRT/SIGFPE/SIGILL/SIGBUS handlers append a backtrace to
+~/.config/FxSound/crash.log (same location class as the Windows fxsound.dmp).
+JUCE-free so it can be linked from any target. Windows never compiles this.
 */
 #include "crash_posix.h"
 #if !defined(_WIN32)
 #include <cstdio>
-#include <execinfo.h>
+#include <cstring>
 #include <cstdlib>
+#include <string>
+#include <execinfo.h>
+#include <signal.h>
+#include <unistd.h>
+
 namespace fxsound_linux {
-static void handler(void*) {
+namespace {
+
+std::string crashLogPath() {
+  const char* xdg = std::getenv("XDG_CONFIG_HOME");
+  std::string base = (xdg && *xdg) ? std::string(xdg)
+                                   : std::string(std::getenv("HOME") ? std::getenv("HOME") : "/tmp") + "/.config";
+  return base + "/FxSound/crash.log";
+}
+
+void writeBacktrace(FILE* f, void* const* frames, int n) {
+  char** syms = backtrace_symbols(frames, static_cast<size_t>(n));
+  for (int i = 0; i < n; i++) fprintf(f, "%s\n", syms ? syms[i] : "?");
+  std::free(syms);
+}
+
+void crashHandler(int sig) {
+  // async-signal-safe enough: open/write/close only, no malloc after frames
   void* bt[64];
   int n = backtrace(bt, 64);
-  const char* home = std::getenv("HOME");
-  std::string p = std::string(home ? home : "/tmp") + "/.config/FxSound/crash.log";
-  FILE* f = fopen(p.c_str(), "a");
+  FILE* f = std::fopen(crashLogPath().c_str(), "a");
   if (f) {
-    fprintf(f, "--- crash ---\n");
-    backtrace_symbols_fd(bt, n, fileno(f));
+    fprintf(f, "--- crash: signal %d (pid %d) ---\n", sig, static_cast<int>(getpid()));
+    writeBacktrace(f, bt, n);
+    fclose(f);
+  }
+  // Also dump to stderr for journal capture.
+  writeBacktrace(stderr, bt, n);
+  signal(sig, SIG_DFL);
+  raise(sig);
+}
+
+}  // namespace
+
+void installCrashHandler() {
+  for (int s : {SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS}) signal(s, crashHandler);
+}
+
+void logBacktrace() {
+  void* bt[64];
+  int n = backtrace(bt, 64);
+  FILE* f = std::fopen(crashLogPath().c_str(), "a");
+  if (f) {
+    fprintf(f, "--- stack ---\n");
+    writeBacktrace(f, bt, n);
     fclose(f);
   }
 }
-void installCrashHandler() {
-  // JUCE: SystemStats::setApplicationCrashHandler(handler);
-  // Included by FxSound target only (needs JuceHeader); kept header-only-safe here.
-  (void)handler;
-}
+
 bool writeStatusStdout(const char* json) {
   if (json) std::puts(json);
   return true;

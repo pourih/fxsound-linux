@@ -1,0 +1,340 @@
+/*
+FxSound Linux port — linux/AudioPassthru_linux.cpp (Phase 7)
+Linux implementation of the AudioPassthru facade (audiopassthru/include/AudioPassthru.h)
+replacing AudioPassthruPrivate + WASAPI sndDevices with the PipeWire backend
+(linux/sndDevices_pw.cpp). Windows keeps audiopassthru/src/AudioPassthru/*.cpp
+(not compiled here — see CMake AudioPassthruCore exclusion note).
+
+Mapping (same behavior as Windows AudioPassthruPrivate):
+  init()                       -> pwStartup (connect, create fxsound sink, streams, default)
+  getSoundDevices(active)      -> pwListSinks + always-present fxsound virtual device
+  setAsPlaybackDevice(sd)      -> pwSetOutput(node.name from pwszID "pw:<name>")
+  processTimer()               -> start DSP worker once PipeWire is ready; mirrors
+                                  Windows "start processing thread on first tick" flow
+                                  (callback onSoundDeviceChange(true) fires on start)
+  DSP worker                   -> capture ring (F32) -> S16 -> processAudio (bypass when
+                                  power off == bit-exact passthrough) -> F32 -> playback ring
+  mute(bool)                   -> silence the playback path (fxsound sink mute not forced)
+  checkDeviceChanges()         -> registry change flag consumed by FxController timer
+  restoreDefaultPlaybackDevice -> pwRestorePrevious (only if default is still fxsound)
+Volume mirror (Mode A) and default switching are event-driven inside sndDevices_pw.cpp.
+JUCE is used only for marshaling device callbacks to the message thread.
+*/
+#include "AudioPassthru.h"
+#include "sndDevices_pw.h"
+#include "float_convert.h"
+
+#include <JuceHeader.h>
+
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+
+namespace {
+
+constexpr int kSampleRate = 48000;
+constexpr int kChannels = 2;
+constexpr int kBitsPerSample = 16;
+
+constexpr const wchar_t* kFxDeviceName = L"FxSound Audio Enhancer";
+constexpr const wchar_t* kFxDeviceDescription = L"FxSound Speakers";
+
+// Windows sndDevices.h equivalents (SND_DEVICES_DFX_DEVICE_STRING etc.).
+std::wstring nodeNameFromPwszID(const std::wstring& pwszID) {
+  // IDs are built as L"pw:" + node.name; the fxsound device is its node name.
+  const std::wstring prefix = L"pw:";
+  if (pwszID.rfind(prefix, 0) == 0) return pwszID.substr(prefix.size());
+  return pwszID;
+}
+
+class AudioPassthruPrivateLinux
+{
+public:
+	AudioPassthruPrivateLinux() = default;
+	~AudioPassthruPrivateLinux() { stopWorker(); }
+
+	int init()
+	{
+		// Power-state DSP bypass is decided by the GUI (DfxDsp::powerOn); audio
+		// must flow from the very first tick, bypassed or not (like Windows).
+		if (!fxsound_linux::pwStartup(/*prevSink*/ "", /*bufferMs*/ 0))
+			return -1;
+
+		fxsound_linux::pwSetDeviceCallback([this] { onPwDeviceChanged(); });
+		return 0;
+	}
+
+	void setDspProcessingModule(DfxDsp* p_dfx_dsp)
+	{
+		p_dfx_dsp_ = p_dfx_dsp;
+		if (p_dfx_dsp_)
+		{
+			p_dfx_dsp_->setSignalFormat(kBitsPerSample, kChannels, kSampleRate, kBitsPerSample);
+		}
+	}
+
+	std::vector<SoundDevice> getSoundDevices(bool active_devices)
+	{
+		(void)active_devices;  // PipeWire registry lists live sinks; unplugged ones vanish.
+		std::vector<SoundDevice> devices;
+
+		const std::wstring selected = selected_output_name_;
+
+		// The fxsound virtual device — always present while the backend runs,
+		// so FxController's dfx_enabled_ check (deviceFriendlyName contains
+		// "FxSound Audio Enhancer") behaves like the Windows driver check.
+		SoundDevice fx;
+		fx.isPlaybackDevice = true;
+		fx.isRealDevice = false;
+		fx.isDFXDevice = true;
+		fx.isActive = true;
+		fx.deviceNumChannel = kChannels;
+		fx.pwszID = kFxDeviceName;
+		fx.deviceFriendlyName = kFxDeviceName;
+		fx.deviceDescription = kFxDeviceDescription;
+		fx.deviceDescriptionRealDevices = L"";
+		fx.deviceFormFactor = L"Speakers";
+		devices.push_back(fx);
+
+		for (const auto& sink : fxsound_linux::pwListSinks())
+		{
+			SoundDevice sd;
+			sd.isPlaybackDevice = true;
+			sd.isRealDevice = true;
+			sd.isActive = true;
+			sd.deviceNumChannel = kChannels;
+			sd.pwszID = L"pw:" + std::wstring(sink.nodeName.begin(), sink.nodeName.end());
+			sd.deviceFriendlyName = std::wstring(sink.description.begin(), sink.description.end());
+			sd.deviceDescription = sd.deviceFriendlyName;
+			sd.deviceFriendlyNameRealDevices = sd.deviceFriendlyName;
+			sd.deviceDescriptionRealDevices = sd.deviceDescription;
+			sd.deviceFormFactor = L"Speakers";
+			if (sd.deviceFriendlyName == selected)
+			{
+				sd.isUserSelectedPlaybackDevice = true;
+				sd.isTargetedRealPlaybackDevice = true;
+			}
+			if (sink.isDefault)
+				sd.isDefaultDevice = true;
+			devices.push_back(sd);
+		}
+
+		return devices;
+	}
+
+	void setAsPlaybackDevice(const SoundDevice sound_device)
+	{
+		std::wstring nodeName = nodeNameFromPwszID(sound_device.pwszID);
+		if (nodeName == kFxDeviceName) return;  // never feedback
+		std::string utf8;
+		for (wchar_t c : nodeName) utf8.push_back((char)(c & 0xff));  // node names are ASCII
+		if (fxsound_linux::pwSetOutput(utf8))
+			selected_output_name_ = nodeName;
+	}
+
+	int setBufferLength(int i_buffer_length_msecs)
+	{
+		if (i_buffer_length_msecs < 10 || i_buffer_length_msecs > 100) return -1;
+		buffer_ms_ = i_buffer_length_msecs;
+		return 0;
+	}
+
+	int processTimer()
+	{
+		if (!fxsound_linux::pwConnectedAndSinkReady())
+			return -1;
+
+		if (!worker_running_.load() && p_dfx_dsp_ != nullptr)
+		{
+			startWorker();
+			// Mirror Windows: processing thread start signals the GUI once.
+			if (s_callback_ != nullptr)
+				s_callback_->onSoundDeviceChange(true);
+		}
+		return 0;
+	}
+
+	void mute(bool mute)
+	{
+		fxsound_linux::pwSetFxsoundMuted(mute);
+	}
+
+	void registerCallback(AudioPassthruCallback* callback)
+	{
+		s_callback_ = callback;
+	}
+
+	bool isPlaybackDeviceAvailable()
+	{
+		return fxsound_linux::pwConnectedAndSinkReady();
+	}
+
+	bool checkDeviceChanges()
+	{
+		// Device-change notification is event-driven (onPwDeviceChanged ->
+		// JUCE message thread -> onSoundDeviceChange(false)); the Windows
+		// polling path returns "changed" so getSoundDevices refreshes. Keep the
+		// flag consumed here for API parity with AudioPassthruPrivate.
+		bool changed = device_changed_.exchange(false);
+		return changed;
+	}
+
+	void restoreDefaultPlaybackDevice()
+	{
+		fxsound_linux::pwRestorePrevious(/*prevSink*/ "", /*currentIsFxsound*/ true);
+	}
+
+private:
+	void onPwDeviceChanged()
+	{
+		device_changed_.store(true);
+		// Marshal to the JUCE message thread (PipeWire thread -> GUI).
+		juce::MessageManager::callAsync([] {
+			if (s_callback_ != nullptr)
+				s_callback_->onSoundDeviceChange(false);
+		});
+	}
+
+	void startWorker()
+	{
+		worker_running_.store(true);
+		worker_ = std::thread([this] { workerLoop(); });
+	}
+
+	void stopWorker()
+	{
+		worker_running_.store(false);
+		if (worker_.joinable())
+			worker_.join();
+	}
+
+	void workerLoop()
+	{
+		std::vector<float> f32buf(1024 * kChannels);
+		std::vector<int16_t> s16buf(1024 * kChannels);
+		auto last_mirror = std::chrono::steady_clock::now();
+
+		while (worker_running_.load())
+		{
+			size_t frames = fxsound_linux::pwCaptureRead(f32buf.data(), 1024);
+			if (frames == 0)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(2));
+			}
+			else if (p_dfx_dsp_ == nullptr || fxsound_linux::pwIsFxsoundMuted())
+			{
+				// No DSP or muted: output silence (mute is one-way, user-facing).
+				std::fill(f32buf.begin(), f32buf.begin() + (long)(frames * kChannels), 0.0f);
+				fxsound_linux::pwPlaybackWrite(f32buf.data(), frames);
+			}
+			else
+			{
+				p_dfx_dsp_->setSignalFormat(kBitsPerSample, kChannels, kSampleRate, kBitsPerSample);
+				fxsound_linux::f32_to_s16_block(f32buf.data(), s16buf.data(), frames * kChannels);
+				p_dfx_dsp_->processAudio(s16buf.data(), s16buf.data(), (int)frames, 0);
+				fxsound_linux::s16_to_f32_block(s16buf.data(), f32buf.data(), frames * kChannels);
+				fxsound_linux::pwPlaybackWrite(f32buf.data(), frames);
+			}
+
+			// Mode A volume mirror re-apply (no-op unless the real node changed).
+			auto now = std::chrono::steady_clock::now();
+			if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_mirror).count() >= 500)
+			{
+				last_mirror = now;
+				fxsound_linux::pwMirrorVolumeTick();
+			}
+		}
+	}
+
+	DfxDsp* p_dfx_dsp_ = nullptr;
+	int buffer_ms_ = 40;
+	std::wstring selected_output_name_;
+	std::atomic<bool> worker_running_{false};
+	std::thread worker_;
+	static inline AudioPassthruCallback* s_callback_ = nullptr;
+	std::atomic<bool> device_changed_{false};
+};
+
+}  // namespace
+
+// ================= AudioPassthru facade (Linux) =================
+
+AudioPassthru::AudioPassthru()
+{
+	data_ = reinterpret_cast<AudioPassthruPrivate*>(new AudioPassthruPrivateLinux());
+}
+
+AudioPassthru::~AudioPassthru()
+{
+	delete reinterpret_cast<AudioPassthruPrivateLinux*>(data_);
+}
+
+int AudioPassthru::init()
+{
+	try
+	{
+		return reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->init();
+	}
+	catch (...)
+	{
+		return -1;
+	}
+}
+
+void AudioPassthru::setDspProcessingModule(DfxDsp* p_dfx_dsp)
+{
+	reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->setDspProcessingModule(p_dfx_dsp);
+}
+
+std::vector<SoundDevice> AudioPassthru::getSoundDevices(bool active_devices)
+{
+	return reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->getSoundDevices(active_devices);
+}
+
+void AudioPassthru::setAsPlaybackDevice(const SoundDevice sound_device)
+{
+	reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->setAsPlaybackDevice(sound_device);
+}
+
+int AudioPassthru::setBufferLength(int i_buffer_length_msecs)
+{
+	return reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->setBufferLength(i_buffer_length_msecs);
+}
+
+int AudioPassthru::processTimer()
+{
+	auto* impl = reinterpret_cast<AudioPassthruPrivateLinux*>(data_);
+	auto ret = impl->processTimer();
+	if (!impl->isPlaybackDeviceAvailable())
+		return -1;
+	return ret;
+}
+
+void AudioPassthru::mute(bool mute)
+{
+	reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->mute(mute);
+}
+
+void AudioPassthru::registerCallback(AudioPassthruCallback* callback)
+{
+	reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->registerCallback(callback);
+}
+
+bool AudioPassthru::isPlaybackDeviceAvailable()
+{
+	return reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->isPlaybackDeviceAvailable();
+}
+
+bool AudioPassthru::checkDeviceChanges()
+{
+	return reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->checkDeviceChanges();
+}
+
+void AudioPassthru::restoreDefaultPlaybackDevice()
+{
+	reinterpret_cast<AudioPassthruPrivateLinux*>(data_)->restoreDefaultPlaybackDevice();
+}
