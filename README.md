@@ -1,7 +1,7 @@
 # FxSound — Linux port (Fedora / PipeWire / Wayland)
 
 This is a **Linux port** of FxSound (the Windows audio enhancer), maintained on
-the `linux` branch. The Windows build is untouched (see `main` / the original
+the `linux` branch (this repository's default branch). The Windows build is untouched (see `main` / the original
 README below); all Linux work lives behind `JUCE_WINDOWS` guards or in new
 `linux/` sources.
 
