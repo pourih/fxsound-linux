@@ -57,7 +57,7 @@ int dfxp_SessionWriteIntegerValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, int
 	if (cast_handle->vendor_code == 0)
       return(OKAY);
 
-	swprintf(wcp_full_key_path, L"%s\\%s\\%d\\%d\\%s\\%s", 
+	swprintf(wcp_full_key_path, L"%ls\\%ls\\%d\\%d\\%ls\\%ls", 
 									DFXP_REGISTRY_TOP_WIDE, 
 									cast_handle->wcp_product_name, 
 									cast_handle->major_version,
@@ -69,7 +69,7 @@ int dfxp_SessionWriteIntegerValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, int
 /*
 	if (cast_handle->trace.mode)
 	{
-		swprintf(cast_handle->wcp_msg1, L"dfxp_SessionWriteIntegerValue: Calling regCreateKey(%s, %s)", wcp_full_key_path, wcp_key_value);
+		swprintf(cast_handle->wcp_msg1, L"dfxp_SessionWriteIntegerValue: Calling regCreateKey(%ls, %ls)", wcp_full_key_path, wcp_key_value);
 	   (cast_handle->slout1)->Message_Wide(FIRST_LINE, cast_handle->wcp_msg1);
 	}
 */
@@ -116,7 +116,7 @@ int dfxp_SessionReadIntegerValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, int 
 	}
 
 	/* Create the registry full path */
-	swprintf(wcp_full_key_path, L"%s\\%s\\%d\\%d\\%s\\%s", 
+	swprintf(wcp_full_key_path, L"%ls\\%ls\\%d\\%d\\%ls\\%ls", 
 									DFXP_REGISTRY_TOP_WIDE, 
 									cast_handle->wcp_product_name, 
 									cast_handle->major_version,
@@ -165,7 +165,7 @@ int dfxp_SessionWriteRealValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, realty
 	if (cast_handle->vendor_code == 0)
       return(OKAY);
 
-	swprintf(wcp_full_key_path, L"%s\\%s\\%d\\%d\\%s\\%s", 
+	swprintf(wcp_full_key_path, L"%ls\\%ls\\%d\\%d\\%ls\\%ls", 
 									DFXP_REGISTRY_TOP_WIDE, 
 									cast_handle->wcp_product_name, 
 									cast_handle->major_version,
@@ -214,7 +214,7 @@ int dfxp_SessionReadRealValue(PT_HANDLE *hp_dfxp, wchar_t *wcp_key_name, realtyp
 	}
 
 	/* Create the registry full path */
-	swprintf(wcp_full_key_path, L"%s\\%s\\%d\\%d\\%s\\%s", 
+	swprintf(wcp_full_key_path, L"%ls\\%ls\\%d\\%d\\%ls\\%ls", 
 									DFXP_REGISTRY_TOP_WIDE, 
 									cast_handle->wcp_product_name, 
 									cast_handle->major_version,

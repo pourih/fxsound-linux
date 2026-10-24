@@ -72,9 +72,9 @@ int PT_DECLSPEC dfxSharedUtilInit(PT_HANDLE **hpp_dfxSharedUtil,
 
 	/* Construct full path to shared dll */
 #ifdef _WIN64
-	swprintf(wcp_dll_fullpath, L"%s\\Dlls\\dfxShared64.dll", wcp_top_shared_folder_path);
+	swprintf(wcp_dll_fullpath, L"%ls\\Dlls\\dfxShared64.dll", wcp_top_shared_folder_path);
 #else
-	swprintf(wcp_dll_fullpath, L"%s\\Dlls\\dfxShared32.dll", wcp_top_shared_folder_path);
+	swprintf(wcp_dll_fullpath, L"%ls\\Dlls\\dfxShared32.dll", wcp_top_shared_folder_path);
 #endif
 
 	cast_handle->shared_memory_hinst = LoadLibrary(wcp_dll_fullpath);		
@@ -139,7 +139,7 @@ int dfxSharedUtil_RegistryGetTopSharedFolderPath(PT_HANDLE *hp_dfxSharedUtil, wc
 
 	swprintf(wcp_top_shared_folder_path, L"");
 
-	swprintf(wcp_full_key_path, L"%s\\%s\\%s\\%s", DFXP_REGISTRY_TOP_WIDE, 
+	swprintf(wcp_full_key_path, L"%ls\\%ls\\%ls\\%ls", DFXP_REGISTRY_TOP_WIDE, 
 			     DFXP_REGISTRY_DFX_PRODUCT_NAME_WIDE, 
 				  DFXP_REGISTRY_SHARED_WIDE,
 		        DFXP_REGISTRY_TOP_SHARED_FOLDER_WIDE);

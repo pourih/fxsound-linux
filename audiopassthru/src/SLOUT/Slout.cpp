@@ -134,12 +134,12 @@ int CSlout::Error_Wide(int i_linetype, wchar_t *wcp_msg)
 {
    if (i_linetype == FIRST_LINE)
    {
-      swprintf(m_wcp_msg, L"Error: %s", wcp_msg);
+      swprintf(m_wcp_msg, L"Error: %ls", wcp_msg);
       m_linenum = 1;
    }
    else
    {
-      swprintf(m_wcp_msg, L"   %s", wcp_msg);
+      swprintf(m_wcp_msg, L"   %ls", wcp_msg);
       m_linenum++;
    }
    
@@ -156,12 +156,12 @@ int CSlout::Warning_Wide(int i_linetype, wchar_t *wcp_msg)
 {
    if (i_linetype == FIRST_LINE)
    {
-      swprintf(m_wcp_msg, L"Warning: %s", wcp_msg);
+      swprintf(m_wcp_msg, L"Warning: %ls", wcp_msg);
       m_linenum = 1;
    }
    else
    {
-      swprintf(m_wcp_msg, L"   %s", wcp_msg);
+      swprintf(m_wcp_msg, L"   %ls", wcp_msg);
       m_linenum++;
    }
    
@@ -181,7 +181,7 @@ int CSlout::Message_Wide(int i_linetype, wchar_t *wcp_msg)
    else 
       m_linenum++;
    
-   swprintf(m_wcp_msg, L"%s", wcp_msg);
+   swprintf(m_wcp_msg, L"%ls", wcp_msg);
    Display_Wide(m_linenum, m_wcp_msg);
      
    return(OKAY);      

@@ -488,9 +488,9 @@ int PT_DECLSPEC ptimeUnixTimeToFormattedString(pt_long l_timestamp,
 	}
 
 	if (b_display_date)
-		swprintf(wcp_formatted_datetime, L"%s - %s", wcp_time, wcp_date);
+		swprintf(wcp_formatted_datetime, L"%ls - %ls", wcp_time, wcp_date);
 	else
-		swprintf(wcp_formatted_datetime, L"%s - %s", wcp_time, wcp_word_today_translation);
+		swprintf(wcp_formatted_datetime, L"%ls - %ls", wcp_time, wcp_word_today_translation);
 
 	return(OKAY);
 }
@@ -522,7 +522,7 @@ int PT_DECLSPEC ptimeFILETIMEToFormattedString(FILETIME* pft_timestamp, wchar_t 
 	GetDateFormatW(LOCALE_SYSTEM_DEFAULT, LOCALE_NOUSEROVERRIDE , &local_st, NULL, wcp_date, PT_MAX_GENERIC_STRLEN);
 	GetTimeFormatW(LOCALE_SYSTEM_DEFAULT, LOCALE_NOUSEROVERRIDE , &local_st, NULL, wcp_time, PT_MAX_GENERIC_STRLEN);
 
-	swprintf(wcp_formatted_datetime, L"%s %s", wcp_date, wcp_time);
+	swprintf(wcp_formatted_datetime, L"%ls %ls", wcp_date, wcp_time);
 
 	return(OKAY);
 }

@@ -865,7 +865,7 @@ int PT_DECLSPEC pstrRemoveAllSpaces_Wide(wchar_t *wcp_string)
    new_string[new_index] = L'\0';
 
 	if (wcslen(new_string) > 0)
-	   swprintf(wcp_string, L"%s", new_string);
+	   swprintf(wcp_string, L"%ls", new_string);
 	else
 		wcp_string[0] = L'\0';
 
@@ -925,7 +925,7 @@ int PT_DECLSPEC pstrRemoveAllLeadingSpaces_Wide(wchar_t *wcp_string)
    new_string[new_index] = L'\0';
 
 	if (wcslen(new_string) > 0)
-	   swprintf(wcp_string, L"%s", new_string);
+	   swprintf(wcp_string, L"%ls", new_string);
 	else
 		wcp_string[0] = L'\0';
 
@@ -1029,7 +1029,7 @@ int PT_DECLSPEC pstrMakeNoDoublesBackSlashes_Wide(wchar_t *wcp_string)
    new_string[new_index] = L'\0';
 
 	if (wcslen(new_string) > 0)
-	   swprintf(wcp_string, L"%s", new_string);
+	   swprintf(wcp_string, L"%ls", new_string);
 	else
 		wcp_string[0] = L'\0';
 
