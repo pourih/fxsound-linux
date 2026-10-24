@@ -408,20 +408,18 @@ void FxMainWindow::setIcon(bool power, bool processing)
 		DestroyIcon(curr_icon);
 	}
 #else
-	// Linux: no .rc icon resources; render the theme logo SVG instead
-	// (red/blue while processing, white logo on, bars icon when off).
-	FxImage logo = FxImage::IconLogo;
-	if (power)
-		logo = processing ? FxImage::HighlightedLogo : FxImage::DefaultLogo;
-
-	auto drawable = Drawable::createFromImageData(FxTheme::getImage(logo), FxTheme::getImageSize(logo));
-	if (drawable != nullptr)
+	// Linux: no .rc icon resources. Use the embedded brand PNG so the taskbar
+	// gets a proper icon via _NET_WM_ICON (state variants are not readable at
+	// taskbar sizes; the Windows red/blue/white/gray states stay Windows-only).
+	Image icon_image = PNGImageFormat::loadFrom(BinaryData::fxsound_large_png, BinaryData::fxsound_large_pngSize);
+	if (icon_image.isValid())
 	{
-		Image icon_image(Image::ARGB, 64, 64, true);
-		Graphics g(icon_image);
-		drawable->drawWithin(g, Rectangle<float>(0.0f, 0.0f, 64.0f, 64.0f), RectanglePlacement::fillDestination, 1.0f);
+		Image scaled(Image::ARGB, 48, 48, true);
+		Graphics g(scaled);
+		g.drawImageWithin(icon_image, 0, 0, 48, 48,
+		                  RectanglePlacement::centred | RectanglePlacement::onlyReduceInSize, true);
 		if (auto* peer = getPeer())
-			peer->setIcon(icon_image);
+			peer->setIcon(scaled);
 	}
 #endif
 }

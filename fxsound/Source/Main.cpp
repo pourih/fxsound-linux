@@ -72,6 +72,17 @@ public:
         try
         {
 #if ! JUCE_WINDOWS
+            // KDE/GNOME fractional scaling on X11 is signalled through Xft.dpi;
+            // JUCE leaves its global scale at 1 and lets the compositor resample,
+            // which drops thin (3px) slider tracks at non-integer factors.
+            // Render at the hinted scale instead, like a DPI-aware Windows app.
+            {
+                auto dpi = Desktop::getInstance().getDisplays().getMainDisplay().dpi;
+                if (dpi > 96.0 * 1.05 && dpi < 96.0 * 3.0)
+                    Desktop::getInstance().setGlobalScaleFactor((float) (dpi / 96.0));
+            }
+#endif
+#if ! JUCE_WINDOWS
             // Primary: serve CLI commands for second instances over a UNIX socket
             // (JUCE 6 Linux broadcastMessage is unimplemented).
             fxsound_linux::installQuitFlagSignals();

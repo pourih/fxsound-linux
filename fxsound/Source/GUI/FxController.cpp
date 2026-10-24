@@ -406,6 +406,7 @@ void FxController::applyConfig(const String& commandline)
 		return;
 	}
 
+
 	auto power_state = arg_list.getValueForOption("--power");
 	auto view = arg_list.getValueForOption("--view");
 	auto output_device = arg_list.getValueForOption("--output").unquoted();
