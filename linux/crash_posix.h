@@ -8,6 +8,8 @@ Untested.
 
 namespace fxsound_linux {
 void installCrashHandler();  // SIGSEGV/SIGABRT/... -> backtrace in ~/.config/FxSound/crash.log
+void installQuitFlagSignals();  // SIGTERM/SIGHUP -> async-safe flag; app polls + quits cleanly
+bool quitFlagConsumed();        // true once a quit signal arrived (one-shot)
 void logBacktrace();         // non-fatal stack dump (exception catch paths)
 bool writeStatusStdout(const char* json);  // --status prints to stdout (not %APPDATA% file)
 }  // namespace fxsound_linux

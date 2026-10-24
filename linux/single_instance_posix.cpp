@@ -82,7 +82,8 @@ void acceptLoop() {
     ssize_t n;
     while ((n = read(fd, buf, sizeof(buf))) > 0) cmd.append(buf, (size_t)n);
 
-    if (cmd.empty()) { close(fd); continue; }
+    // NOTE: an empty command line is meaningful ("bare relaunch" = show the
+    // window); it still flows to onCommand. Only --status gets a response.
 
     if (cmd.find("--status") != std::string::npos) {
       // Request/response: run to completion, then return status.json content so

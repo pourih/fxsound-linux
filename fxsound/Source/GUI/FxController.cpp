@@ -989,6 +989,7 @@ void FxController::hideMainWindow()
 		settings_.setBool("run_minimized", true);
 	}
 
+#if JUCE_WINDOWS
 	if (minimize_tip_)
 	{
 		minimize_tip_ = false;
@@ -996,6 +997,7 @@ void FxController::hideMainWindow()
 			FxModel::getModel().pushMessage(TRANS("FxSound in system tray\r\nClick FxSound icon to reopen"));
 			});
 	}
+#endif
 }
 
 void FxController::showMainWindow()

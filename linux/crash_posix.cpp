@@ -53,6 +53,31 @@ void installCrashHandler() {
   for (int s : {SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS}) signal(s, crashHandler);
 }
 
+namespace {
+volatile sig_atomic_t g_quit_requested = 0;
+void quitSignalHandler(int) { g_quit_requested = 1; }
+}  // namespace
+
+void installQuitFlagSignals() {
+  // JUCE traps SIGINT only; give TERM/HUP the same clean-quit chance so audio
+  // state (default sink), the CLI socket and settings are all restored/saved.
+  for (int s : {SIGTERM, SIGHUP}) {
+    struct sigaction sa {};
+    sa.sa_handler = quitSignalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    sigaction(s, &sa, nullptr);
+  }
+}
+
+bool quitFlagConsumed() {
+  if (g_quit_requested) {
+    g_quit_requested = 0;
+    return true;
+  }
+  return false;
+}
+
 void logBacktrace() {
   void* bt[64];
   int n = backtrace(bt, 64);

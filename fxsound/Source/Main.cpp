@@ -74,9 +74,22 @@ public:
 #if ! JUCE_WINDOWS
             // Primary: serve CLI commands for second instances over a UNIX socket
             // (JUCE 6 Linux broadcastMessage is unimplemented).
+            fxsound_linux::installQuitFlagSignals();
+            quit_watch_timer_ = std::make_unique<QuitWatchTimer>();
+            quit_watch_timer_->startTimer(200);  // poll quit flag; clean quit on SIGTERM/SIGHUP
             fxsound_linux::startServer([](const std::string& cmd, std::function<void()> done) {
                 juce::MessageManager::callAsync([cmd, done] {
-                    FxController::getInstance().applyConfig(cmd);
+                    if (juce::String(cmd).trim().isEmpty())
+                    {
+                        // Bare relaunch with no arguments = "open the app":
+                        // show + raise the window (e.g. when it was started
+                        // hidden via --run_minimized autostart).
+                        FxController::getInstance().showMainWindow();
+                    }
+                    else
+                    {
+                        FxController::getInstance().applyConfig(cmd);
+                    }
                     done();
                 });
             });
@@ -177,6 +190,7 @@ public:
         LookAndFeel::setDefaultLookAndFeel(nullptr);
 
 #if ! JUCE_WINDOWS
+        quit_watch_timer_.reset();
         fxsound_linux::stopServer();
 #else
         CoUninitialize();
@@ -202,6 +216,19 @@ private:
 #if ! JUCE_WINDOWS
     bool initialised_ = false;
     String pending_commandline_;
+
+    // Turns SIGTERM/SIGHUP into a clean JUCE quit (settings saved, sink
+    // removed, CLI socket cleaned) instead of a hard kill that leaks them.
+    class QuitWatchTimer : public Timer
+    {
+    public:
+        void timerCallback() override
+        {
+            if (fxsound_linux::quitFlagConsumed())
+                JUCEApplication::getInstance()->systemRequestedQuit();
+        }
+    };
+    std::unique_ptr<QuitWatchTimer> quit_watch_timer_;
 #endif
 #if JUCE_WINDOWS
     static constexpr int MAX_FRAMES = 64;
