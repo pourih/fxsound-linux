@@ -71,14 +71,27 @@ private:
 #else
 // Linux (FxSound port): v1 ships without a tray icon (Shell_NotifyIcon is
 // Windows-only). Same public interface so Main.cpp/FxController compile
-// unchanged; SNI StatusNotifierItem may come in v1.1 via linux/tray_sni.cpp.
+// unchanged; model notifications go to org.freedesktop.Notifications
+// (linux/notify_posix.cpp); SNI tray may come in v1.1 via linux/tray_sni.cpp.
+#include "notify_posix.h"
+
 class FxSystemTrayView : public Component, public FxModel::Listener
 {
 public:
 	FxSystemTrayView() = default;
 	~FxSystemTrayView() = default;
 
-	void modelChanged(FxModel::Event model_event) override { ignoreUnused(model_event); }
+	void modelChanged(FxModel::Event model_event) override
+	{
+		if (model_event != FxModel::Event::Notification || FxController::getInstance().isNotificationsHidden())
+			return;
+
+		String message;
+		std::pair<String, String> link;
+		FxModel::getModel().popMessage(message, link);
+		if (message.isNotEmpty())
+			fxsound_linux::notify(message.toStdString(), link.first.toStdString());
+	}
 	void setStatus(bool power, bool processing) { ignoreUnused(power, processing); }
 	Point<int> getSystemTrayWindowPosition(int width, int height)
 	{

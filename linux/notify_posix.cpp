@@ -9,13 +9,24 @@ Respects hide_notifications setting (caller checks before calling notify()).
 #include <string>
 
 namespace fxsound_linux {
+namespace {
+std::string shellQuote(std::string s) {
+  std::string out;
+  for (char c : s) {
+    if (c == '\'') out += "'\\''";
+    else out += c;
+  }
+  return "'" + out + "'";
+}
+}  // namespace
+
 void notify(const std::string& title, const std::string& body) {
   // Best-effort, never blocks audio: shell out to gdbus (available on Plasma).
   std::string cmd =
       "gdbus call --session --dest org.freedesktop.Notifications "
       "--object-path /org/freedesktop/Notifications "
       "--method org.freedesktop.Notifications.Notify "
-      "'FxSound' 0 '' '" + title + "' '" + body + "' '[]' '{}' 5000 "
+      "'FxSound' 0 '' " + shellQuote(title) + " " + shellQuote(body) + " '[]' '{}' 5000 "
       ">/dev/null 2>&1 &";
   (void)std::system(cmd.c_str());
 }

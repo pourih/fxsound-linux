@@ -24,12 +24,14 @@ Driver MS-LPL does not apply — driver is not ported. Flatpak deferred.
 %prep
 %autosetup -n %{name}-%{version}
 
+# Source tarball must include the pinned submodules:
+#   git submodule update --init --recursive  (Resources + third_party/JUCE @ 6.1.6)
 %build
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake --build build --target FxSound
 
 %install
-install -Dm0755 build/FxSound %{buildroot}%{_bindir}/fxsound
+install -Dm0755 build/FxSound_artefacts/Release/FxSound %{buildroot}%{_bindir}/fxsound
 install -Dm0644 packaging/fxsound.desktop %{buildroot}%{_datadir}/applications/fxsound.desktop
 install -Dm0644 packaging/com.fxsound.FxSound.metainfo.xml %{buildroot}%{_datadir}/metainfo/com.fxsound.FxSound.metainfo.xml
 install -Dm0644 fxsound/Images/fxsound.png %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/fxsound.png
@@ -49,5 +51,5 @@ install -Dm0644 Installer/Resources/FxSound.settings %{buildroot}%{_datadir}/fxs
 %license LICENSE
 
 %changelog
-* Thu Oct 16 2026 Linux Port <port@localhost> - 1.2.15-1
+* Thu Oct 16 2025 Linux Port <port@localhost> - 1.2.15-1
 - Initial Fedora 44 PipeWire port (UNVERIFIED here; see docs/linux-port/).
