@@ -74,12 +74,19 @@ private:
 // unchanged; model notifications go to org.freedesktop.Notifications
 // (linux/notify_posix.cpp); SNI tray may come in v1.1 via linux/tray_sni.cpp.
 #include "notify_posix.h"
+#include "tray_sni.h"
 
 class FxSystemTrayView : public Component, public FxModel::Listener
 {
 public:
-	FxSystemTrayView() = default;
-	~FxSystemTrayView() = default;
+	FxSystemTrayView()
+	{
+		fxsound_linux::traySniStart();
+	}
+	~FxSystemTrayView() override
+	{
+		fxsound_linux::traySniStop();
+	}
 
 	void modelChanged(FxModel::Event model_event) override
 	{
@@ -92,10 +99,13 @@ public:
 		if (message.isNotEmpty())
 			fxsound_linux::notify(message.toStdString(), link.first.toStdString());
 	}
-	void setStatus(bool power, bool processing) { ignoreUnused(power, processing); }
+	void setStatus(bool power, bool processing)
+	{
+		fxsound_linux::traySniSetStatus(power, processing);
+	}
 	Point<int> getSystemTrayWindowPosition(int width, int height)
 	{
-		// No tray on Linux: centre the lite view on the primary display.
+		// Centre the lite view on the primary display.
 		auto area = Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
 		return Point<int>(area.getCentreX() - width / 2, area.getCentreY() - height / 2);
 	}

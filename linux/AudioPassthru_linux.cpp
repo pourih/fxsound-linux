@@ -43,6 +43,14 @@ constexpr int kBitsPerSample = 16;
 constexpr const wchar_t* kFxDeviceName = L"FxSound Audio Enhancer";
 constexpr const wchar_t* kFxDeviceDescription = L"FxSound Speakers";
 
+inline std::wstring utf8ToWide(const std::string& utf8) {
+  return juce::String::fromUTF8(utf8.data(), (int)utf8.size()).toWideCharPointer();
+}
+
+inline std::string wideToUtf8(const std::wstring& wide) {
+  return juce::String(wide.c_str()).toStdString();
+}
+
 // Windows sndDevices.h equivalents (SND_DEVICES_DFX_DEVICE_STRING etc.).
 std::wstring nodeNameFromPwszID(const std::wstring& pwszID) {
   // IDs are built as L"pw:" + node.name; the fxsound device is its node name.
@@ -107,8 +115,8 @@ public:
 			sd.isRealDevice = true;
 			sd.isActive = true;
 			sd.deviceNumChannel = kChannels;
-			sd.pwszID = L"pw:" + std::wstring(sink.nodeName.begin(), sink.nodeName.end());
-			sd.deviceFriendlyName = std::wstring(sink.description.begin(), sink.description.end());
+			sd.pwszID = L"pw:" + utf8ToWide(sink.nodeName);
+			sd.deviceFriendlyName = utf8ToWide(sink.description);
 			sd.deviceDescription = sd.deviceFriendlyName;
 			sd.deviceFriendlyNameRealDevices = sd.deviceFriendlyName;
 			sd.deviceDescriptionRealDevices = sd.deviceDescription;
@@ -130,8 +138,7 @@ public:
 	{
 		std::wstring nodeName = nodeNameFromPwszID(sound_device.pwszID);
 		if (nodeName == kFxDeviceName) return;  // never feedback
-		std::string utf8;
-		for (wchar_t c : nodeName) utf8.push_back((char)(c & 0xff));  // node names are ASCII
+		std::string utf8 = wideToUtf8(nodeName);
 		if (fxsound_linux::pwSetOutput(utf8))
 			selected_output_name_ = nodeName;
 	}
@@ -201,6 +208,10 @@ private:
 
 	void startWorker()
 	{
+		if (p_dfx_dsp_ != nullptr)
+		{
+			p_dfx_dsp_->setSignalFormat(kBitsPerSample, kChannels, kSampleRate, kBitsPerSample);
+		}
 		worker_running_.store(true);
 		worker_ = std::thread([this] { workerLoop(); });
 	}
@@ -233,7 +244,6 @@ private:
 			}
 			else
 			{
-				p_dfx_dsp_->setSignalFormat(kBitsPerSample, kChannels, kSampleRate, kBitsPerSample);
 				fxsound_linux::f32_to_s16_block(f32buf.data(), s16buf.data(), frames * kChannels);
 				p_dfx_dsp_->processAudio(s16buf.data(), s16buf.data(), (int)frames, 0);
 				fxsound_linux::s16_to_f32_block(s16buf.data(), f32buf.data(), frames * kChannels);

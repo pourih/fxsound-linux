@@ -11,38 +11,81 @@ JUCE-free so it can be linked from any target. Windows never compiles this.
 #include <cstring>
 #include <cstdlib>
 #include <string>
+#include <filesystem>
 #include <execinfo.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 namespace fxsound_linux {
 namespace {
 
-std::string crashLogPath() {
+static char s_crash_log_path[512] = {0};
+
+void initCrashLogPath() {
+  if (s_crash_log_path[0] != '\0') return;
   const char* xdg = std::getenv("XDG_CONFIG_HOME");
   std::string base = (xdg && *xdg) ? std::string(xdg)
                                    : std::string(std::getenv("HOME") ? std::getenv("HOME") : "/tmp") + "/.config";
-  return base + "/FxSound/crash.log";
+  std::string dir = base + "/FxSound";
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
+  std::string path = dir + "/crash.log";
+  std::strncpy(s_crash_log_path, path.c_str(), sizeof(s_crash_log_path) - 1);
 }
 
-void writeBacktrace(FILE* f, void* const* frames, int n) {
-  char** syms = backtrace_symbols(frames, static_cast<size_t>(n));
-  for (int i = 0; i < n; i++) fprintf(f, "%s\n", syms ? syms[i] : "?");
-  std::free(syms);
+// Minimal async-signal-safe integer to string writer
+void safeWriteInt(int fd, int val) {
+  char buf[32];
+  int i = 0;
+  if (val == 0) {
+    write(fd, "0", 1);
+    return;
+  }
+  if (val < 0) {
+    write(fd, "-", 1);
+    val = -val;
+  }
+  while (val > 0 && i < (int)sizeof(buf)) {
+    buf[i++] = '0' + (val % 10);
+    val /= 10;
+  }
+  for (int j = 0; j < i / 2; ++j) {
+    char t = buf[j];
+    buf[j] = buf[i - 1 - j];
+    buf[i - 1 - j] = t;
+  }
+  write(fd, buf, i);
+}
+
+void writeCrashHeader(int fd, const char* prefix, int sig) {
+  write(fd, prefix, std::strlen(prefix));
+  if (sig >= 0) {
+    write(fd, "signal ", 7);
+    safeWriteInt(fd, sig);
+    write(fd, " (pid ", 6);
+    safeWriteInt(fd, static_cast<int>(getpid()));
+    write(fd, ")", 1);
+  }
+  write(fd, " ---\n", 5);
 }
 
 void crashHandler(int sig) {
-  // async-signal-safe enough: open/write/close only, no malloc after frames
+  // Strictly async-signal-safe: open/write/close only, no malloc/free, no stdio mutexes
   void* bt[64];
   int n = backtrace(bt, 64);
-  FILE* f = std::fopen(crashLogPath().c_str(), "a");
-  if (f) {
-    fprintf(f, "--- crash: signal %d (pid %d) ---\n", sig, static_cast<int>(getpid()));
-    writeBacktrace(f, bt, n);
-    fclose(f);
+  if (s_crash_log_path[0] != '\0') {
+    int fd = open(s_crash_log_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+      writeCrashHeader(fd, "--- crash: ", sig);
+      backtrace_symbols_fd(bt, n, fd);
+      close(fd);
+    }
   }
-  // Also dump to stderr for journal capture.
-  writeBacktrace(stderr, bt, n);
+  // Also dump to stderr for systemd journal capture
+  writeCrashHeader(STDERR_FILENO, "--- crash: ", sig);
+  backtrace_symbols_fd(bt, n, STDERR_FILENO);
+
   signal(sig, SIG_DFL);
   raise(sig);
 }
@@ -50,6 +93,7 @@ void crashHandler(int sig) {
 }  // namespace
 
 void installCrashHandler() {
+  initCrashLogPath();
   for (int s : {SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS}) signal(s, crashHandler);
 }
 
@@ -79,13 +123,16 @@ bool quitFlagConsumed() {
 }
 
 void logBacktrace() {
+  initCrashLogPath();
   void* bt[64];
   int n = backtrace(bt, 64);
-  FILE* f = std::fopen(crashLogPath().c_str(), "a");
-  if (f) {
-    fprintf(f, "--- stack ---\n");
-    writeBacktrace(f, bt, n);
-    fclose(f);
+  if (s_crash_log_path[0] != '\0') {
+    int fd = open(s_crash_log_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+      writeCrashHeader(fd, "--- stack trace ", -1);
+      backtrace_symbols_fd(bt, n, fd);
+      close(fd);
+    }
   }
 }
 

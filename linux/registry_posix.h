@@ -1,6 +1,6 @@
 /*
 FxSound Linux port — linux/registry_posix.h (Phase 5)
-Replaces reg/* + sndDevicesReg.cpp + DfxDspRegistry.cpp on Linux.
+Replaces reg/... + sndDevicesReg.cpp + DfxDspRegistry.cpp on Linux.
 Settings file: ~/.config/FxSound/linux_registry.ini
 dfx_guid becomes sink node.name (fxsound_audio_enhancer).
 Startup-only keys return logged compile-time defaults.

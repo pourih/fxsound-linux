@@ -642,22 +642,12 @@ void FxMainWindow::modelChanged(FxModel::Event)
 
 void FxMainWindow::userTriedToCloseWindow()
 {
-#if JUCE_WINDOWS
 	FxController::getInstance().hideMainWindow();
-#else
-	// Linux v1 has no tray icon to hide into; closing the window quits the app
-	// (clean quit also persists settings and restores the default sink).
-	FxController::getInstance().exit();
-#endif
 }
 
 void FxMainWindow::closeButtonPressed()
 {
-#if JUCE_WINDOWS
-	FxController::getInstance().hideMainWindow();
-#else
 	userTriedToCloseWindow();
-#endif
 }
 
 void FxMainWindow::moved()

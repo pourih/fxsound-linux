@@ -90,6 +90,7 @@ target_include_directories(AudioPassthruPW PUBLIC linux audiopassthru/include ds
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND OR PKG_CONFIG_FOUND)
   pkg_check_modules(PIPEWIRE QUIET libpipewire-0.3)
+  pkg_check_modules(SYSTEMD QUIET libsystemd)
   if(PIPEWIRE_FOUND)
     target_include_directories(AudioPassthruPW PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
     target_compile_options(AudioPassthruPW PRIVATE ${PIPEWIRE_CFLAGS_OTHER})
@@ -171,10 +172,29 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/third_party/JUCE/CMakeLists.txt)
     BinaryData
     DfxDsp AudioPassthruPW AudioPassthruCore
   )
+  if(SYSTEMD_FOUND)
+    target_include_directories(FxSound PRIVATE ${SYSTEMD_INCLUDE_DIRS})
+    target_link_libraries(FxSound PRIVATE ${SYSTEMD_LIBRARIES})
+    target_compile_definitions(FxSound PRIVATE HAVE_SYSTEMD=1)
+  endif()
   # No juce_opengl (unused per RECON §6). No crypt32/Wtsapi32/dbghelp.
   juce_generate_juce_header(FxSound)
 else()
   message(WARNING "third_party/JUCE missing — FxSound GUI skipped (run git submodule add + checkout 6.1.6). Trivial + DSP targets still build.")
+endif()
+
+include(GNUInstallDirs)
+install(TARGETS dsp_cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(TARGET FxSound)
+  install(TARGETS FxSound RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  install(FILES packaging/fxsound.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+  install(FILES packaging/fxsound.service DESTINATION ${CMAKE_INSTALL_DATADIR}/systemd/user)
+  if(EXISTS ${CMAKE_SOURCE_DIR}/fxsound/Images/logo-red.svg)
+    install(FILES fxsound/Images/logo-red.svg
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+      RENAME fxsound.svg
+    )
+  endif()
 endif()
 
 enable_testing()

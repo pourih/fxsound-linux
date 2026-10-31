@@ -40,10 +40,14 @@ the __linux__ body.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fcntl.h>
 #include <map>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
+#include <sys/wait.h>
 
 namespace fxsound_linux {
 namespace {
@@ -69,11 +73,18 @@ size_t ring_push(std::vector<float>& ring, std::atomic<size_t>& w, std::atomic<s
   size_t avail = (wpos - rpos) % cap;
   size_t space = cap - 1 - avail;
   size_t n = std::min(frames, space);
-  for (size_t i = 0; i < n; i++) {
-    size_t f = (wpos % cap) * kCh;
-    std::memcpy(&ring[f], src + i * kCh, kCh * sizeof(float));
-    wpos++;
+  if (n == 0) return 0;
+
+  size_t idx = wpos % cap;
+  size_t first = std::min(n, cap - idx);
+  size_t second = n - first;
+  if (first > 0) {
+    std::memcpy(&ring[idx * kCh], src, first * kCh * sizeof(float));
   }
+  if (second > 0) {
+    std::memcpy(&ring[0], src + first * kCh, second * kCh * sizeof(float));
+  }
+  wpos += n;
   w.store(wpos, std::memory_order_release);
   return n;
 }
@@ -85,11 +96,18 @@ size_t ring_pop(std::vector<float>& ring, std::atomic<size_t>& w, std::atomic<si
   size_t rpos = r.load(std::memory_order_relaxed);
   size_t avail = (wpos - rpos) % cap;
   size_t n = std::min(maxFrames, avail);
-  for (size_t i = 0; i < n; i++) {
-    size_t f = (rpos % cap) * kCh;
-    std::memcpy(dst + i * kCh, &ring[f], kCh * sizeof(float));
-    rpos++;
+  if (n == 0) return 0;
+
+  size_t idx = rpos % cap;
+  size_t first = std::min(n, cap - idx);
+  size_t second = n - first;
+  if (first > 0) {
+    std::memcpy(dst, &ring[idx * kCh], first * kCh * sizeof(float));
   }
+  if (second > 0) {
+    std::memcpy(dst + first * kCh, &ring[0], second * kCh * sizeof(float));
+  }
+  rpos += n;
   r.store(rpos, std::memory_order_release);
   return n;
 }
@@ -113,10 +131,8 @@ std::string readPrevSinkFile() {
 
 void writePrevSinkFile(const std::string& name) {
   std::string p = stateFilePath();
-  std::string dir = p.substr(0, p.find_last_of('/'));
-  std::string cmd = "mkdir -p '" + dir + "'";
-  int rc = system(cmd.c_str());
-  (void)rc;
+  std::error_code ec;
+  std::filesystem::create_directories(std::filesystem::path(p).parent_path(), ec);
   FILE* f = fopen(p.c_str(), "w");
   if (f) { fprintf(f, "%s\n", name.c_str()); fclose(f); }
 }
@@ -161,6 +177,7 @@ struct PwState {
   pw_node* fxNode = nullptr;
   struct spa_hook fxNodeListener{};
   pw_node* realNode = nullptr;        // current real output node
+  struct spa_hook realNodeListener{};
   std::string realNodeName;
 
   pw_stream* capStream = nullptr;
@@ -280,11 +297,14 @@ void registryGlobalRemove(void*, uint32_t id) {
   g.sinks.erase(it);
 }
 
-// ---- volume mirror (Mode A) ----
+// ---- bi-directional volume mirror ----
+
+static bool g_syncingVolume = false;
 
 void applyVolumeToReal() {
-  if (!g.realNode || !g.fxVolumeKnown || g.lastFxVolCount <= 0) return;
+  if (!g.realNode || !g.fxVolumeKnown || g.lastFxVolCount <= 0 || g_syncingVolume) return;
 
+  g_syncingVolume = true;
   uint8_t buf[1024];
   spa_pod_builder b;
   spa_pod_frame f;
@@ -295,10 +315,33 @@ void applyVolumeToReal() {
   spa_pod_builder_add(&b, SPA_POD_Array(sizeof(float), SPA_TYPE_Float, g.lastFxVolCount, g.lastFxVol), 0);
   const spa_pod* pod = (const spa_pod*)spa_pod_builder_pop(&b, &f);
   pw_node_set_param(g.realNode, SPA_PARAM_Props, 0, pod);
+  g_syncingVolume = false;
+}
+
+void applyVolumeToFx(bool mute, int nvols, const float* vols) {
+  if (!g.fxNode || nvols <= 0 || g_syncingVolume) return;
+
+  g_syncingVolume = true;
+  g.lastFxMute = mute;
+  g.lastFxVolCount = nvols;
+  for (int i = 0; i < nvols; i++) g.lastFxVol[i] = vols[i];
+  g.fxVolumeKnown = true;
+
+  uint8_t buf[1024];
+  spa_pod_builder b;
+  spa_pod_frame f;
+  spa_pod_builder_init(&b, buf, sizeof(buf));
+  spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+  spa_pod_builder_add(&b, SPA_PROP_mute, SPA_POD_Bool(mute), 0);
+  spa_pod_builder_prop(&b, SPA_PROP_channelVolumes, 0);
+  spa_pod_builder_add(&b, SPA_POD_Array(sizeof(float), SPA_TYPE_Float, nvols, vols), 0);
+  const spa_pod* pod = (const spa_pod*)spa_pod_builder_pop(&b, &f);
+  pw_node_set_param(g.fxNode, SPA_PARAM_Props, 0, pod);
+  g_syncingVolume = false;
 }
 
 void onFxNodeParam(void*, int, uint32_t id, uint32_t, uint32_t, const struct spa_pod* param) {
-  if (id != SPA_PARAM_Props || !param) return;
+  if (id != SPA_PARAM_Props || !param || g_syncingVolume) return;
   float vols[8] = {0};
   int nvols = 0;
   bool mute = g.lastFxMute;
@@ -320,7 +363,9 @@ void onFxNodeParam(void*, int, uint32_t id, uint32_t, uint32_t, const struct spa
   if (nvols <= 0) return;
 
   bool changed = mute != g.lastFxMute || nvols != g.lastFxVolCount;
-  for (int i = 0; i < nvols && !changed; i++) changed = vols[i] != g.lastFxVol[i];
+  for (int i = 0; i < nvols && !changed; i++) {
+    if (std::abs(vols[i] - g.lastFxVol[i]) > 0.005f) changed = true;
+  }
   if (!changed) return;  // debounce: ignore echo of our own writes
 
   g.lastFxMute = mute;
@@ -334,6 +379,57 @@ void onFxNodeParam(void*, int, uint32_t id, uint32_t, uint32_t, const struct spa
     printf(" mute=%d\n", (int)mute);
   }
 }
+
+void onRealNodeParam(void*, int, uint32_t id, uint32_t, uint32_t, const struct spa_pod* param) {
+  if (id != SPA_PARAM_Props || !param || g_syncingVolume) return;
+  float vols[8] = {0};
+  int nvols = 0;
+  bool mute = false;
+  bool muteFound = false;
+  const spa_pod_prop* p;
+  const spa_pod_object* obj = (const spa_pod_object*)param;
+  SPA_POD_OBJECT_FOREACH(obj, p) {
+    if (p->key == SPA_PROP_mute) {
+      if (spa_pod_get_bool(&p->value, &mute)) muteFound = true;
+    } else if (p->key == SPA_PROP_channelVolumes) {
+      uint32_t n = 0;
+      const float* v = (const float*)spa_pod_get_array(&p->value, &n);
+      if (v && n > 0) {
+        nvols = (int)std::min((uint32_t)8, n);
+        for (int i = 0; i < nvols; i++) vols[i] = v[i];
+      }
+    }
+  }
+  if (nvols <= 0) return;
+  if (!muteFound) mute = g.lastFxMute;
+
+  bool changed = (mute != g.lastFxMute) || (nvols != g.lastFxVolCount);
+  for (int i = 0; i < nvols && !changed; i++) {
+    if (std::abs(vols[i] - g.lastFxVol[i]) > 0.005f) changed = true;
+  }
+  if (!changed) return;
+
+  if (g_verbose) {
+    printf("[pw] volume sync: fxsound <- real '%s'", g.realNodeName.c_str());
+    for (int i = 0; i < nvols; i++) printf(" %.2f", vols[i]);
+    printf(" mute=%d\n", (int)mute);
+  }
+  applyVolumeToFx(mute, nvols, vols);
+}
+
+void onRealNodeInfo(void*, const pw_node_info* info) {
+  if (!info || !g.realNode) return;
+  uint32_t paramId = SPA_PARAM_Props;
+  pw_node_subscribe_params(g.realNode, &paramId, 1);
+}
+
+const pw_node_events kRealNodeEvents = []() {
+  pw_node_events e{};
+  e.version = PW_VERSION_NODE_EVENTS;
+  e.info = onRealNodeInfo;
+  e.param = onRealNodeParam;
+  return e;
+}();
 
 void onFxNodeInfo(void*, const pw_node_info* info) {
   if (!info || !g.fxNode) return;
@@ -492,12 +588,26 @@ bool makeSink() {
 }
 
 std::string currentDefaultFromWpctl() {
-  FILE* f = popen("pw-metadata -n default 0 default.audio.sink 2>/dev/null", "r");
-  if (!f) return "";
+  if (!g.defaultSinkName.empty()) return g.defaultSinkName;
+  int pfd[2];
+  if (pipe(pfd) != 0) return "";
+  pid_t pid = fork();
+  if (pid == 0) {
+    close(pfd[0]);
+    dup2(pfd[1], STDOUT_FILENO);
+    int devnull = open("/dev/null", O_WRONLY);
+    if (devnull >= 0) { dup2(devnull, STDERR_FILENO); close(devnull); }
+    close(pfd[1]);
+    execlp("pw-metadata", "pw-metadata", "-n", "default", "0", "default.audio.sink", nullptr);
+    _exit(127);
+  }
+  close(pfd[1]);
+  if (pid < 0) { close(pfd[0]); return ""; }
   char buf[1024] = {0};
-  size_t n = fread(buf, 1, sizeof(buf) - 1, f);
-  (void)n;
-  pclose(f);
+  ssize_t n = read(pfd[0], buf, sizeof(buf) - 1);
+  close(pfd[0]);
+  waitpid(pid, nullptr, 0);
+  if (n <= 0) return "";
   char* v = strstr(buf, "value:'");
   if (!v) return "";
   v += 7;
@@ -516,9 +626,16 @@ void setDefaultViaWpctl(const std::string& nodeName) {
     if (s) id = s->nodeId;
   }
   if (!id) return;
-  std::string cmd = "wpctl set-default " + std::to_string(id) + " 2>/dev/null";
-  int rc = system(cmd.c_str());
-  (void)rc;
+  std::string idStr = std::to_string(id);
+  pid_t pid = fork();
+  if (pid == 0) {
+    int devnull = open("/dev/null", O_WRONLY);
+    if (devnull >= 0) { dup2(devnull, STDOUT_FILENO); dup2(devnull, STDERR_FILENO); close(devnull); }
+    execlp("wpctl", "wpctl", "set-default", idStr.c_str(), nullptr);
+    _exit(127);
+  } else if (pid > 0) {
+    waitpid(pid, nullptr, 0);
+  }
 }
 
 bool setDefaultMeta(const std::string& nodeName) {
@@ -610,9 +727,15 @@ bool pwStartup(const std::string& prevSink, int /*bufferMs*/) {
     pw_node_add_listener(g.fxNode, &g.fxNodeListener, &fxNodeEv, nullptr);
   }
 
-  // bind the real output node (write-only target for volume mirror)
+  // bind the real output node (for bi-directional volume sync)
   SinkInfo* rs = findSinkByNodeName(g.realNodeName);
-  if (rs) g.realNode = (pw_node*)pw_registry_bind(g.reg, rs->nodeId, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+  if (rs) {
+    g.realNode = (pw_node*)pw_registry_bind(g.reg, rs->nodeId, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+    if (g.realNode) {
+      static pw_node_events realNodeEv = kRealNodeEvents;
+      pw_node_add_listener(g.realNode, &g.realNodeListener, &realNodeEv, nullptr);
+    }
+  }
 
   bool ok = makeStreams();
   if (ok) {
@@ -637,7 +760,11 @@ void pwShutdown(const std::string& prevSink) {
   pw_thread_loop_lock(g.loop);
   destroyStreams();
   if (g.fxNode) { pw_proxy_destroy((pw_proxy*)g.fxNode); g.fxNode = nullptr; }
-  if (g.realNode) { pw_proxy_destroy((pw_proxy*)g.realNode); g.realNode = nullptr; }
+  if (g.realNode) {
+    spa_hook_remove(&g.realNodeListener);
+    pw_proxy_destroy((pw_proxy*)g.realNode);
+    g.realNode = nullptr;
+  }
   if (g.sinkProxy) { pw_proxy_destroy(g.sinkProxy); g.sinkProxy = nullptr; }
   if (g.metaProxy) { pw_proxy_destroy(g.metaProxy); g.meta = nullptr; g.metaProxy = nullptr; }
   if (g.regProxy) { pw_proxy_destroy(g.regProxy); g.reg = nullptr; g.regProxy = nullptr; }
@@ -681,9 +808,17 @@ bool pwSetOutput(const std::string& nodeName) {
   SinkInfo* s = findSinkByNodeName(nodeName);
   if (!s) { pw_thread_loop_unlock(g.loop); return false; }
 
-  if (g.realNode) { pw_proxy_destroy((pw_proxy*)g.realNode); g.realNode = nullptr; }
+  if (g.realNode) {
+    spa_hook_remove(&g.realNodeListener);
+    pw_proxy_destroy((pw_proxy*)g.realNode);
+    g.realNode = nullptr;
+  }
   g.realNodeName = nodeName;
   g.realNode = (pw_node*)pw_registry_bind(g.reg, s->nodeId, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+  if (g.realNode) {
+    static pw_node_events realNodeEv = kRealNodeEvents;
+    pw_node_add_listener(g.realNode, &g.realNodeListener, &realNodeEv, nullptr);
+  }
 
   bool ok = makePlaybackStream();
   if (ok) g.fxVolumeKnown = false;  // re-learn volumes before next write

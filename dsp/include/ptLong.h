@@ -21,7 +21,7 @@ that produced these edits explicitly preserves `long long`.
 
 Scope: DfxDsp + AudioPassthruCore compiled boundary only (see
 docs/linux-port/DECISIONS.md 2026-10-16 session-2 entries). PipeWire code
-(linux/*_pw, AudioPassthruPW) and compat/ are excluded by design.
+(linux/..._pw, AudioPassthruPW) and compat/ are excluded by design.
 
 Cross-boundary API parity: AudioPassthruCore (MTH/pstr/slout/mry/ptime),
 linux/registry_posix.*, linux/dsp_registry_posix.*, linux/file_reg_posix.*

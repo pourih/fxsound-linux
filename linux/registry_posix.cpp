@@ -9,29 +9,46 @@ Untested.
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <mutex>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 namespace fxsound_linux {
 namespace {
-std::map<std::wstring, std::wstring> loadAll() {
-  std::map<std::wstring, std::wstring> m;
+
+std::mutex g_regMutex;
+std::map<std::wstring, std::wstring> g_cache;
+bool g_loaded = false;
+
+void ensureLoadedLocked() {
+  if (g_loaded) return;
+  g_loaded = true;
   std::ifstream f(registryPath());
+  if (!f.is_open()) return;
+
   std::string line;
   auto w = [](const std::string& s) { return fs::u8path(s).wstring(); };
   while (std::getline(f, line)) {
     if (line.empty() || line[0] == '#') continue;
     auto p = line.find('=');
     if (p == std::string::npos) continue;
-    m[w(line.substr(0, p))] = w(line.substr(p + 1));
+    g_cache[w(line.substr(0, p))] = w(line.substr(p + 1));
   }
-  return m;
 }
-void saveAll(const std::map<std::wstring, std::wstring>& m) {
-  fs::create_directories(fs::path(registryPath()).parent_path());
-  std::ofstream f(registryPath(), std::ios::trunc);
-  auto u = [](const std::wstring& ws) { return fs::path(ws).u8string(); };
-  for (auto& [k, v] : m) f << u(k) << "=" << u(v) << "\n";
+
+void saveLocked() {
+  std::error_code ec;
+  fs::create_directories(fs::path(registryPath()).parent_path(), ec);
+  std::string tmpPath = registryPath() + ".tmp." + std::to_string(getpid());
+  {
+    std::ofstream f(tmpPath, std::ios::trunc);
+    if (!f.is_open()) return;
+    auto u = [](const std::wstring& ws) { return fs::path(ws).u8string(); };
+    for (auto& [k, v] : g_cache) f << u(k) << "=" << u(v) << "\n";
+  }
+  fs::rename(tmpPath, registryPath(), ec);
 }
+
 }  // namespace
 
 std::string configDir() {
@@ -42,14 +59,27 @@ std::string configDir() {
 std::string registryPath() { return configDir() + "/linux_registry.ini"; }
 
 bool regReadString(const std::wstring& subkey, const std::wstring& value, std::wstring& out) {
-  auto m = loadAll();
-  auto it = m.find(subkey + L"|" + value);
-  if (it == m.end()) { std::wcerr << L"[linux-reg] miss " << subkey << L"\\" << value << L" (startup default)\n"; return false; }
-  out = it->second; return true;
+  std::lock_guard<std::mutex> lock(g_regMutex);
+  ensureLoadedLocked();
+  auto it = g_cache.find(subkey + L"|" + value);
+  if (it == g_cache.end()) { return false; }
+  out = it->second;
+  return true;
 }
+
 bool regWriteString(const std::wstring& subkey, const std::wstring& value, const std::wstring& data) {
-  auto m = loadAll(); m[subkey + L"|" + value] = data; saveAll(m); return true;
+  std::lock_guard<std::mutex> lock(g_regMutex);
+  ensureLoadedLocked();
+  std::wstring key = subkey + L"|" + value;
+  auto it = g_cache.find(key);
+  if (it != g_cache.end() && it->second == data) {
+    return true;  // No change
+  }
+  g_cache[key] = data;
+  saveLocked();
+  return true;
 }
+
 bool regReadDword(const std::wstring& subkey, const std::wstring& value, uint32_t& out) {
   std::wstring s; if (!regReadString(subkey, value, s)) return false;
   try { out = (uint32_t)std::stoul(s); return true; } catch (...) { return false; }

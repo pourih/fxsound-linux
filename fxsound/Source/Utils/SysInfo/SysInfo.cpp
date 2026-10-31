@@ -157,9 +157,8 @@ void SysInfo::enumAudioOutputs(StringArray& audioOutputNames)
 
 bool SysInfo::canSupportHotkeys()
 {
-	// v1: no global RegisterHotKey equivalent; KDE shortcuts call the CLI
-	// (see docs/linux-port/DESKTOP.md).
-	return false;
+	// Linux: Global shortcuts supported via XDG Desktop Portal, D-Bus, and CLI
+	return true;
 }
 
 bool SysInfo::isRemoteSession()
